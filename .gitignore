@@ -42,8 +42,12 @@ fastlane/test_output
 
 # Claude Code — share project config, ignore machine-local state
 .claude/settings.local.json
+.agents/
+.claude/skills/
+skills-lock.json
 
 # Local notes
+AGENTS.md
 PLAN.md
 plan_*.md
 apple_review_*.md

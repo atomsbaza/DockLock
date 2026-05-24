@@ -25,9 +25,11 @@ Auto-lock your Mac when you step away from your desk.
 Blur everything instantly with one keystroke — only your trusted apps stay visible.
 - Single hotkey (default: `⌘+Shift+L`) blurs all screens immediately and hides non-safelisted apps
 - **Safelist model**: apps you trust (Terminal, IDE, browsers, etc.) remain visible and interactive above the blur; everything else vanishes
+- **Multi-display** *(v0.3.4)*: every connected monitor is covered correctly, including external displays with different resolutions or heights
+- **No-flash switching** *(v0.3.4)*: clicking a safelisted app during Panic Mode shows its window instantly — no full-blur frame before the hole appears
 - **Fullscreen & Chromium support**: safelisted apps remain visible whether they are in a normal window, fullscreen Space, or are Chromium-based (Chrome, Edge, Brave, Arc)
 - **Audio mute** *(v0.3.3)*: system audio is silenced on panic and restored to its prior state on release
-- **Clipboard clear** *(v0.3.3)*: anything in the clipboard is wiped on panic — recently-copied passwords can't be pasted by a bystander
+- **Clipboard clear** *(v0.3.3)*: anything in the clipboard is wiped on panic — prevents bystanders from pasting copied passwords
 - Release with Touch ID for added security
 
 ### 📸 **Intruder Capture**
@@ -272,9 +274,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 ## Known Issues
 
-| Issue | Status | Workaround |
-|---|---|---|
-| **Panic Mode — secondary monitor not covered when connected mid-panic** | Open — planned fix in v0.3.1 | Overlays are created once at panic start. Re-trigger Panic Mode (`⌘+Shift+L` twice) after connecting the display. |
+No known issues.
 
 ---
 
@@ -347,15 +347,24 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - iCloud Key-Value Storage entitlement enabled
 
 ### ✅ v0.3.2
-- Fix: crash on launch when iCloud sync contained duplicate lock history UUIDs (`Dictionary(uniqueKeysWithValues:)` → `uniquingKeysWith:`)
+- Fix: crash on launch when iCloud sync contained duplicate lock history UUIDs
 
-### ✅ v0.3.3 (Current)
-- Panic Mode now mutes system audio on trigger and restores the prior mute state on release
-- Panic Mode now clears the clipboard on trigger (not restored — intentional, prevents bystanders from pasting copied passwords)
-- Both behaviors are toggleable in Settings → Panic Mode
+### ✅ v0.3.3
+- Panic Mode now mutes system audio on trigger and restores the prior mute state on release (toggleable in Settings → Panic Mode)
+- Panic Mode now clears the clipboard on trigger — prevents bystanders from pasting copied passwords (toggleable in Settings → Panic Mode)
 
-### 🔜 Planned
-- Fix: blur overlay for secondary monitors
+### ✅ v0.3.4 (Current)
+- Fix: multi-display overlay — external monitors now blur correctly on macOS Sequoia
+- Fix: blur-to-hole flash eliminated — safelisted apps are always visible through holes during Panic Mode; switching to them is instantaneous with no full-blur frame
+- Fix: mask hole coordinates corrected for setups where the primary display and focused display have different heights (wrong `NSScreen.main` height was used for CG→AppKit y-flip)
+- Fix: window bounds now sourced exclusively from `CGWindowList` — AX was returning inner content views for Chromium/Electron apps, producing undersized holes
+- Fix: CGEvent tap now survives system-initiated disables (timeout / user input) — no-flash guarantee no longer silently degrades mid-session
+- Fix: `CFRunLoopSource` is correctly removed on panic release — eliminates a run loop source leak that accumulated across repeated panic cycles
+- Fix: newly connected display during active Panic Mode gets safelisted-app holes immediately instead of waiting up to 250 ms
+- Performance: GPU blur pipeline pre-warmed at launch; per-app `CALayer` mask rebuilt on-demand via `CGWindowList` only (~1–3 ms); 250ms loop skips no-op ticks using a rect-signature change check
+- Performance: preemptive mask rebuild on click now only fires when the clicked window belongs to a safelisted app — non-safelisted clicks (Dock, menu bar) no longer trigger a rebuild
+
+### 💡 Future
 - Custom app modes / profiles (office, café, travel)
 - Multiple paired Bluetooth devices (iPhone + Apple Watch)
 
