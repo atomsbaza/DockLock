@@ -14,7 +14,7 @@ final class PresentationModeManager: ObservableObject {
     private init() {
         ScreenShareDetector.shared.sharingStarted
             .sink { [weak self] _ in
-                // TODO: guard SettingsStore.shared.presentationModeEnabled — re-enable after Task 7
+                guard SettingsStore.shared.presentationModeEnabled else { return }
                 guard !PanicModeManager.shared.isActive else { return }
                 self?.engage()
             }
@@ -29,7 +29,7 @@ final class PresentationModeManager: ObservableObject {
             .filter { !$0 }
             .dropFirst()
             .sink { [weak self] _ in
-                // TODO: guard SettingsStore.shared.presentationModeEnabled — re-enable after Task 7
+                guard SettingsStore.shared.presentationModeEnabled else { return }
                 if ScreenShareDetector.shared.isCurrentlySharing {
                     self?.engage()
                 }

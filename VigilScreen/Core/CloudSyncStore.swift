@@ -14,7 +14,8 @@ final class CloudSyncStore: ObservableObject {
     // panicRequiresTouchID and intruderCaptureEnabled are local-only security controls — not synced
     private static let settingsKeys: Set<String> = [
         "panicShortcutEnabled", "proximityLockEnabled",
-        "proximityLockDelay", "proximityRSSIThreshold", "showMenuBarStats"
+        "proximityLockDelay", "proximityRSSIThreshold", "showMenuBarStats",
+        "presentationModeEnabled"
     ]
 
     private init() {
@@ -39,6 +40,8 @@ final class CloudSyncStore: ObservableObject {
         SettingsStore.shared.syncFromCloud(kvStore)
         AppSafelist.shared.syncFromCloud(kvStore)
         LockHistoryStore.shared.syncFromCloud(kvStore)
+        ScreenShareDetector.shared.syncWatchlistFromCloud(kvStore)
+        PresentationSafelist.shared.syncFromCloud(kvStore)
         if didSync { lastSyncedAt = Date() }
         refreshSignInStatus()
     }
@@ -60,6 +63,12 @@ final class CloudSyncStore: ObservableObject {
         }
         if keys.contains("lockHistory") {
             LockHistoryStore.shared.applyCloudUpdate(kvStore)
+        }
+        if keys.contains("presentationWatchlist") {
+            ScreenShareDetector.shared.syncWatchlistFromCloud(kvStore)
+        }
+        if keys.contains("presentationSafelist") {
+            PresentationSafelist.shared.applyCloudUpdate(kvStore)
         }
         lastSyncedAt = Date()
     }

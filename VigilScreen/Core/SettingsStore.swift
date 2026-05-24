@@ -16,6 +16,7 @@ class SettingsStore: ObservableObject {
     @Published var shoulderSurfingSensitivity: Double
     @Published var shoulderSurfingAutoRelease: Bool
     @Published var shoulderSurfingReleaseDelay: Double
+    @Published var presentationModeEnabled: Bool
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -33,6 +34,7 @@ class SettingsStore: ObservableObject {
         shoulderSurfingSensitivity  = d.object(forKey: Keys.shoulderSurfingSensitivity)  as? Double ?? 0.5
         shoulderSurfingAutoRelease  = d.object(forKey: Keys.shoulderSurfingAutoRelease)  as? Bool   ?? false
         shoulderSurfingReleaseDelay = d.object(forKey: Keys.shoulderSurfingReleaseDelay) as? Double ?? 5.0
+        presentationModeEnabled     = d.object(forKey: Keys.presentationModeEnabled)     as? Bool   ?? true
 
         persist(\.$launchAtLogin,             key: Keys.launchAtLogin,            cloud: false)
         persist(\.$panicShortcutEnabled,      key: Keys.panicShortcutEnabled)
@@ -46,6 +48,7 @@ class SettingsStore: ObservableObject {
         persist(\.$shoulderSurfingSensitivity,  key: Keys.shoulderSurfingSensitivity)
         persist(\.$shoulderSurfingAutoRelease,  key: Keys.shoulderSurfingAutoRelease,  cloud: false)
         persist(\.$shoulderSurfingReleaseDelay, key: Keys.shoulderSurfingReleaseDelay)
+        persist(\.$presentationModeEnabled,     key: Keys.presentationModeEnabled)
     }
 
     private func persist<T>(_ kp: KeyPath<SettingsStore, Published<T>.Publisher>, key: String, cloud: Bool = true) {
@@ -79,6 +82,8 @@ class SettingsStore: ObservableObject {
            let v = store.object(forKey: Keys.shoulderSurfingSensitivity) as? Double { shoulderSurfingSensitivity = v }
         if keys.contains(Keys.shoulderSurfingReleaseDelay),
            let v = store.object(forKey: Keys.shoulderSurfingReleaseDelay) as? Double { shoulderSurfingReleaseDelay = v }
+        if keys.contains(Keys.presentationModeEnabled),
+           let v = store.object(forKey: Keys.presentationModeEnabled) as? Bool { presentationModeEnabled = v }
     }
 
     private enum Keys {
@@ -94,12 +99,14 @@ class SettingsStore: ObservableObject {
         static let shoulderSurfingSensitivity  = "shoulderSurfingSensitivity"
         static let shoulderSurfingAutoRelease  = "shoulderSurfingAutoRelease"
         static let shoulderSurfingReleaseDelay = "shoulderSurfingReleaseDelay"
+        static let presentationModeEnabled     = "presentationModeEnabled"
 
         // launchAtLogin, panicRequiresTouchID, intruderCaptureEnabled, shoulderSurfingEnabled/AutoRelease are per-machine security controls
         static let allCloudKeys: [String] = [
             panicShortcutEnabled, proximityLockEnabled,
             proximityLockDelay, proximityRSSIThreshold, showMenuBarStats,
-            shoulderSurfingSensitivity, shoulderSurfingReleaseDelay
+            shoulderSurfingSensitivity, shoulderSurfingReleaseDelay,
+            presentationModeEnabled
         ]
     }
 }
