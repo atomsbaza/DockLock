@@ -15,6 +15,14 @@ Sequence on trigger:
 
 Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindowListCopyWindowInfo`. CGEvent tap intercepts left-mouse-down to pre-apply hole before activation. Persisted as `UserDefaults["panicBlocklist"]` (JSON `[String]`).
 
+**v0.4.0 refactor:** `PanicModeManager` reads `WorkspaceObserver.shared.runningApps` (cached) instead of `NSWorkspace.shared.runningApplications` at trigger time. During active panic, `didActivateApplicationNotification` immediately `.hide()`s non-safelisted apps (event-driven, replaces 400ms timer).
+
+## Presentation Mode (`Features/PresentationMode/`)
+- `WorkspaceObserver` (Core): singleton owning all `NSWorkspace.shared.notificationCenter` subscriptions; caches `runningApps`, exposes `appLaunched`/`appTerminated`/`appActivated` subjects. No `.receive(on: DispatchQueue.main)` — NSWorkspace notifications already arrive on main thread; adding the hop causes blur-flash regression.
+- `ScreenShareDetector`: polls `CGWindowListCopyWindowInfo` every 2s when watched apps are running (zero CPU at idle). Heuristics per app (Zoom, Teams, FaceTime, Loom, Chrome/Meet). Static `isSharing(bundleID:windowTitles:)` for testability. Watchlist persisted as `UserDefaults["presentationWatchlist"]` (JSON).
+- `PresentationModeManager`: subscribes to `ScreenShareDetector` subjects. On share start: snapshots + hides non-safelisted apps, records `.presentationMode` history. On share stop: restores via `.unhide()`. Panic Mode takes priority (blocks engage when panic active; re-evaluates on panic release).
+- `PresentationSafelist`: mirrors `AppSafelist` pattern; seeded from `panicBlocklist` on first launch. Key `"presentationSafelist"`.
+
 ## Proximity Lock (`Features/ProximityLock/`)
 - `BluetoothMonitor`: `CBCentralManager` RSSI; 8s silence = absent; paired UUID in Keychain
 - `LockTrigger`: Combine hysteresis; absent for N seconds → `triggerPanic()` then `lockScreen()`
@@ -25,7 +33,7 @@ Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindo
 
 ## Core Services
 - `SettingsStore`: `@Published` + Combine `.sink` auto-persist to `UserDefaults` + `NSUbiquitousKeyValueStore`
-- `CloudSyncStore`: listens for external KV changes, fans out to `SettingsStore`, `AppSafelist`, `LockHistoryStore`
+- `CloudSyncStore`: listens for external KV changes, fans out to `SettingsStore`, `AppSafelist`, `LockHistoryStore`, `ScreenShareDetector`, `PresentationSafelist`
 
 ## State Persistence
 | Data | Store |
@@ -35,4 +43,6 @@ Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindo
 | Lock history | `UserDefaults["lockHistory"]` (JSON) |
 | BT device UUID | Keychain |
 | Intruder photos | `~/Pictures/Vigil Screen Captures/<uuid>.jpg` |
+| Presentation watchlist | `UserDefaults["presentationWatchlist"]` (JSON) |
+| Presentation safelist | `UserDefaults["presentationSafelist"]` (JSON) |
 | Cloud sync | `NSUbiquitousKeyValueStore` |

@@ -14,12 +14,16 @@
 - macOS 26 Liquid Glass: gate `.glassEffect` behind `#available(macOS 26, *)`
 - Version bumping: `/version-bump <x.y.z>` slash command
 
-## Test Coverage (39 tests, all passing)
+## Test Coverage (82 tests, all passing)
 - `AppBlocklistTests` — safelist CRUD and persistence
 - `SettingsStoreTests` — defaults, clamping, round-trip
 - `DiscoveredDeviceTests` — RSSI signal classification
 - `LockTriggerTests` — countdown logic, no-op states
 - `BluetoothMonitorTests` — scan state, pairing, presence timer
 - `PanicModeManagerTests` — state machine (active/inactive, idempotency)
+- `WorkspaceObserverTests` — notification cache and subject emission
+- `PresentationSafelistTests` — CRUD, persistence, reset from panic safelist
+- `ScreenShareDetectorTests` — per-app heuristics, watchlist mutations
+- `PresentationModeManagerTests` — engage/disengage, history entries, panic priority
 
 Not unit-testable: BT scanning, `CGSession` lock, Touch ID, `NSApplication.hide()`, camera, AX interactions.
