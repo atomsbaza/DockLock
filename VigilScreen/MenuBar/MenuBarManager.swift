@@ -106,15 +106,18 @@ class MenuBarManager {
     // MARK: - Icon state
 
     private func observePanicState() {
-        PanicModeManager.shared.$isActive
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isActive in
-                self?.updateIcon(panicActive: isActive)
-            }
-            .store(in: &cancellables)
+        Publishers.CombineLatest(
+            PanicModeManager.shared.$isActive,
+            PresentationModeManager.shared.$isActive
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] panicActive, presentationActive in
+            self?.updateIcon(panicActive: panicActive, presentationActive: presentationActive)
+        }
+        .store(in: &cancellables)
     }
 
-    private func updateIcon(panicActive: Bool) {
+    private func updateIcon(panicActive: Bool, presentationActive: Bool) {
         let symbolName = panicActive ? "lock.shield.fill" : "lock.shield"
         let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Vigil Screen")
         // Must be template so it renders correctly in both light and dark menu bars
@@ -122,6 +125,7 @@ class MenuBarManager {
         statusItem?.button?.image = image
         // Do NOT use contentTintColor — it conflicts with template image rendering
         // and makes the icon invisible. The filled/outline symbol difference is enough.
+        statusItem?.button?.toolTip = presentationActive ? "Presentation Mode active" : nil
     }
 
     // MARK: - Popover
