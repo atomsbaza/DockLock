@@ -19,6 +19,9 @@ struct SettingsView: View {
                 NavigationLink(destination: ShoulderSurfingView()) {
                     Label("Shoulder Surfing", systemImage: "eye.trianglebadge.exclamationmark")
                 }
+                NavigationLink(destination: PresentationModeView()) {
+                    Label("Presentation Mode", systemImage: "rectangle.on.rectangle")
+                }
                 NavigationLink(destination: LockHistoryView()) {
                     Label("History", systemImage: "clock")
                 }
