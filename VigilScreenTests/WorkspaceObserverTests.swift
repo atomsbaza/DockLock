@@ -22,6 +22,7 @@ final class WorkspaceObserverTests: XCTestCase {
             userInfo: [NSWorkspace.applicationUserInfoKey: fakeApp]
         )
         wait(for: [exp], timeout: 1.0)
+        XCTAssertFalse(WorkspaceObserver.shared.runningApps.isEmpty, "runningApps should be updated after notification")
     }
 
     @MainActor func testAppTerminated_firesOnNotification() {
@@ -38,6 +39,7 @@ final class WorkspaceObserverTests: XCTestCase {
             userInfo: [NSWorkspace.applicationUserInfoKey: fakeApp]
         )
         wait(for: [exp], timeout: 1.0)
+        XCTAssertFalse(WorkspaceObserver.shared.runningApps.isEmpty, "runningApps should be updated after notification")
     }
 
     @MainActor func testAppActivated_firesOnNotification() {

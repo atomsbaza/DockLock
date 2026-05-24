@@ -20,7 +20,6 @@ final class WorkspaceObserver: ObservableObject {
 
         nc.publisher(for: NSWorkspace.didLaunchApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] app in
                 self?.runningApps = NSWorkspace.shared.runningApplications
                 self?.appLaunched.send(app)
@@ -29,7 +28,6 @@ final class WorkspaceObserver: ObservableObject {
 
         nc.publisher(for: NSWorkspace.didTerminateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] app in
                 self?.runningApps = NSWorkspace.shared.runningApplications
                 self?.appTerminated.send(app)
@@ -38,7 +36,6 @@ final class WorkspaceObserver: ObservableObject {
 
         nc.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] app in
                 self?.appActivated.send(app)
             }
