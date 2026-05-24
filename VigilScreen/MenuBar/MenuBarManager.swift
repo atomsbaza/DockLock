@@ -70,36 +70,46 @@ class MenuBarManager {
     // MARK: - Menubar stats
 
     private func observeMenuBarStats() {
-        // Combine settings toggle + RSSI + countdown into a single update stream.
+        // Combine settings toggle + RSSI + countdown + presentation state into one stream.
         Publishers.CombineLatest4(
             SettingsStore.shared.$showMenuBarStats,
             BluetoothMonitor.shared.$currentRSSI,
             BluetoothMonitor.shared.$isDeviceVisible,
             LockTrigger.shared.$secondsRemaining
         )
+        .combineLatest(
+            Publishers.CombineLatest(
+                PanicModeManager.shared.$isActive,
+                PresentationModeManager.shared.$isActive
+            )
+        )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] showStats, rssi, visible, seconds in
+        .sink { [weak self] statsArgs, modeArgs in
+            let (showStats, rssi, visible, seconds) = statsArgs
+            let (panicActive, presentationActive) = modeArgs
             self?.updateMenuBarTitle(
                 showStats: showStats,
                 rssi: rssi,
                 visible: visible,
-                countdown: seconds
+                countdown: seconds,
+                showBadge: presentationActive && !panicActive
             )
         }
         .store(in: &cancellables)
     }
 
-    private func updateMenuBarTitle(showStats: Bool, rssi: Int, visible: Bool, countdown: Int) {
+    private func updateMenuBarTitle(showStats: Bool, rssi: Int, visible: Bool, countdown: Int, showBadge: Bool = false) {
+        let badge = showBadge ? "●" : ""
         guard showStats, BluetoothMonitor.shared.pairedDeviceUUID != nil else {
-            statusItem?.button?.title = ""
+            statusItem?.button?.title = badge.isEmpty ? "" : " \(badge)"
             return
         }
         if LockTrigger.shared.isCountingDown {
-            statusItem?.button?.title = " \(countdown)s"
+            statusItem?.button?.title = badge.isEmpty ? " \(countdown)s" : " \(badge) \(countdown)s"
         } else if visible, rssi != 0 {
-            statusItem?.button?.title = " \(rssi)"
+            statusItem?.button?.title = badge.isEmpty ? " \(rssi)" : " \(badge) \(rssi)"
         } else {
-            statusItem?.button?.title = ""
+            statusItem?.button?.title = badge.isEmpty ? "" : " \(badge)"
         }
     }
 

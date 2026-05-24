@@ -104,7 +104,7 @@ sharingStopped: PassthroughSubject<NSRunningApplication, Never>
 
 **Presentation safelist** — stored as `UserDefaults["presentationSafelist"]` (JSON `[String]`). Copied from `panicBlocklist` on first launch. Managed via a `PresentationSafelist` model mirroring the existing `AppSafelist` pattern.
 
-**Panic priority** — if Panic Mode fires while Presentation Mode is active, Panic takes priority. `PresentationModeManager` suspends state. On panic release, re-evaluates whether a watched app is still sharing and re-engages if so.
+**Panic priority** — if Panic Mode fires while Presentation Mode is active, Panic takes priority. `PresentationModeManager` remains engaged (`isActive` stays `true`, `hiddenApps` preserved) — no state suspension needed because panic hides everything independently. On panic release, `PresentationModeManager` re-evaluates whether a watched app is still sharing and re-engages if so (hidden apps stay hidden until sharing stops).
 
 ---
 
@@ -151,7 +151,7 @@ All three keys sync via `NSUbiquitousKeyValueStore` through the existing `CloudS
 - **CGWindowList returns empty** — treat as not sharing, stay in current state. No false triggers.
 - **Watched app terminates mid-share** — `WorkspaceObserver.appTerminated` fires; `ScreenShareDetector` fires `sharingStopped`; `PresentationModeManager` restores apps normally.
 - **Unhide fails** — log to `LockHistoryStore` with an `.error` tag; do not swallow silently.
-- **Presentation Mode active when panic fires** — Panic Mode takes priority; Presentation Mode re-evaluates on panic release.
+- **Presentation Mode active when panic fires** — Panic Mode takes priority; `PresentationModeManager` stays engaged internally. On panic release, it re-evaluates sharing state and re-engages if still sharing.
 
 ---
 

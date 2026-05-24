@@ -40,9 +40,11 @@ final class PresentationModeManager: ObservableObject {
     private func engage() {
         guard !isActive else { return }
         isActive = true
+        let watchedIDs = ScreenShareDetector.shared.watchedBundleIDs
         hiddenApps = WorkspaceObserver.shared.runningApps.filter { app in
             guard let id = app.bundleIdentifier else { return false }
             return !safelist.bundleIDs.contains(id) &&
+                   !watchedIDs.contains(id) &&
                    app.activationPolicy == .regular &&
                    !app.isHidden
         }

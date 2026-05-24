@@ -60,16 +60,24 @@ final class ScreenShareDetectorTests: XCTestCase {
 
     // MARK: - Meet (Chrome)
 
-    func testChrome_meetPlusPresent_detected() {
+    func testChrome_meetPlusPresent_sameWindow_detected() {
         XCTAssertTrue(ScreenShareDetector.isSharing(
             bundleID: "com.google.Chrome",
-            windowTitles: ["Google Meet - call", "You are presenting"]
+            windowTitles: ["Presenting - Google Meet"]
         ))
     }
 
     func testChrome_meetWithoutPresent_notDetected() {
         XCTAssertFalse(ScreenShareDetector.isSharing(
             bundleID: "com.google.Chrome", windowTitles: ["Google Meet - call"]
+        ))
+    }
+
+    func testChrome_meetAndPresentInSeparateWindows_notDetected() {
+        // "meet" in one tab, "present" in another — must not trigger false positive
+        XCTAssertFalse(ScreenShareDetector.isSharing(
+            bundleID: "com.google.Chrome",
+            windowTitles: ["Google Meet - call", "Presentation - Google Slides"]
         ))
     }
 

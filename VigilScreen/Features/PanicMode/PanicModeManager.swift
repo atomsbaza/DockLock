@@ -535,11 +535,7 @@ class PanicModeManager: ObservableObject {
         // the new window order but the stale mask (the "blur flash").
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .sink { [weak self] app in
-                guard let self else { return }
-                if !self.isSafelisted(app) { _ = app.hide() }
-                self.updateBlurOverlay(for: app)
-            }
+            .sink { [weak self] app in self?.handleAppActivation(app) }
             .store(in: &panicCancellables)
 
         // On Space switch, bring overlays to the front of the screenSaver level.
@@ -551,7 +547,14 @@ class PanicModeManager: ObservableObject {
             .store(in: &panicCancellables)
     }
 
-    private func isSafelisted(_ app: NSRunningApplication) -> Bool {
+    // Internal so tests can call handleAppActivation and isSafelisted directly
+    // without posting real NSWorkspace notifications.
+    func handleAppActivation(_ app: NSRunningApplication) {
+        if !isSafelisted(app) { _ = app.hide() }
+        updateBlurOverlay(for: app)
+    }
+
+    func isSafelisted(_ app: NSRunningApplication) -> Bool {
         app.bundleIdentifier.map { safelist.bundleIDs.contains($0) } ?? false
     }
 

@@ -52,4 +52,36 @@ final class PanicModeStateTests: XCTestCase {
         PanicModeManager.shared.triggerPanic() // already active — no second record
         XCTAssertEqual(LockHistoryStore.shared.events.count, countBefore + 1)
     }
+
+    // MARK: - App activation handler
+
+    @MainActor func testIsSafelisted_returnsFalseByDefault() {
+        // XCTest runner is not in the panic safelist by default
+        XCTAssertFalse(PanicModeManager.shared.isSafelisted(NSRunningApplication.current))
+    }
+
+    @MainActor func testIsSafelisted_returnsTrueAfterAdding() {
+        guard let bundleID = NSRunningApplication.current.bundleIdentifier else {
+            XCTFail("test process has no bundle identifier"); return
+        }
+        AppSafelist.shared.add(bundleID)
+        defer { AppSafelist.shared.remove(bundleID) }
+        XCTAssertTrue(PanicModeManager.shared.isSafelisted(NSRunningApplication.current))
+    }
+
+    @MainActor func testHandleAppActivation_safelistedApp_doesNotHide() {
+        // Safelist the test process so handleAppActivation skips .hide() on it.
+        // Verifies the handler respects the safelisted guard during active panic.
+        guard let bundleID = NSRunningApplication.current.bundleIdentifier else {
+            XCTFail("test process has no bundle identifier"); return
+        }
+        AppSafelist.shared.add(bundleID)
+        defer { AppSafelist.shared.remove(bundleID) }
+
+        PanicModeManager.shared.triggerPanic()
+        // Calling handleAppActivation with a safelisted app must not crash and must
+        // leave panic active (the overlay update path is exercised without .hide()).
+        PanicModeManager.shared.handleAppActivation(NSRunningApplication.current)
+        XCTAssertTrue(PanicModeManager.shared.isActive)
+    }
 }

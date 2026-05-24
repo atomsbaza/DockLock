@@ -65,8 +65,16 @@ final class ScreenShareDetector: ObservableObject {
             }
             .store(in: &cancellables)
 
+        SettingsStore.shared.$presentationModeEnabled
+            .dropFirst()
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if enabled { self.startPollingIfNeeded() } else { self.stopPolling() }
+            }
+            .store(in: &cancellables)
+
         // Seed with already-running watched apps at launch
-        for app in NSWorkspace.shared.runningApplications {
+        for app in WorkspaceObserver.shared.runningApps {
             guard let id = app.bundleIdentifier,
                   watchedBundleIDs.contains(id) else { continue }
             watchedRunningApps.insert(id)
@@ -78,6 +86,13 @@ final class ScreenShareDetector: ObservableObject {
 
     func addToWatchlist(_ bundleID: String) {
         watchedBundleIDs.insert(bundleID)
+        let isRunning = WorkspaceObserver.shared.runningApps.contains {
+            $0.bundleIdentifier == bundleID
+        }
+        if isRunning {
+            watchedRunningApps.insert(bundleID)
+            startPollingIfNeeded()
+        }
     }
 
     func removeFromWatchlist(_ bundleID: String) {
@@ -85,6 +100,10 @@ final class ScreenShareDetector: ObservableObject {
         watchedRunningApps.remove(bundleID)
         if watchedRunningApps.isEmpty {
             stopPolling()
+            if isCurrentlySharing {
+                isCurrentlySharing = false
+                PresentationModeManager.shared.forceDisengage()
+            }
         }
     }
 
@@ -96,7 +115,9 @@ final class ScreenShareDetector: ObservableObject {
     // MARK: - Polling
 
     private func startPollingIfNeeded() {
-        guard !watchedRunningApps.isEmpty, pollingTask == nil else { return }
+        guard !watchedRunningApps.isEmpty,
+              pollingTask == nil,
+              SettingsStore.shared.presentationModeEnabled else { return }
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 await MainActor.run { self?.poll() }
@@ -146,8 +167,7 @@ final class ScreenShareDetector: ObservableObject {
         case "com.loom.desktop":
             return true  // any window = recording active
         case "com.google.Chrome":
-            return lower.contains { $0.contains("meet") } &&
-                   lower.contains { $0.contains("present") }
+            return lower.contains { $0.contains("meet") && $0.contains("present") }
         default:
             return lower.contains { $0.contains("sharing") || $0.contains("screen share") }
         }
