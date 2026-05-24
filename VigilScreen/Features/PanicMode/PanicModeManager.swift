@@ -160,11 +160,15 @@ class PanicModeManager: ObservableObject {
         }
 
         // Create and show overlays only for newly connected screens
+        var addedScreen = false
         for screen in currentScreens where overlayWindows[screen.displayID] == nil {
             let win = overlayWindow(for: screen)
             win.alphaValue = 1
             win.orderFrontRegardless()
+            addedScreen = true
         }
+        // Apply holes immediately so new displays don't show full-blur for up to 250ms
+        if addedScreen { updateOverlayMasks() }
     }
 
     // MARK: - Vigil Screen Window Level Management
@@ -385,6 +389,9 @@ class PanicModeManager: ObservableObject {
                 let maskLayer = contentLayer.mask ?? CALayer()
                 maskLayer.contents = cgImg
                 maskLayer.frame = CGRect(origin: .zero, size: contentLayer.bounds.size)
+                let scale = NSScreen.screens.first { $0.displayID == displayID }?.backingScaleFactor ?? 1.0
+                maskLayer.contentsScale = scale
+                maskLayer.contentsGravity = .resize
                 contentLayer.mask = maskLayer
             } else {
                 contentLayer.mask = nil
@@ -622,9 +629,13 @@ class PanicModeManager: ObservableObject {
                   let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
                   cgBounds.width > 1, cgBounds.height > 10,
                   cgBounds.contains(cgPoint) else { continue }
-            guard info[kCGWindowOwnerPID as String] is Int else { break }
-            // Whether the clicked window is safelisted or not, rebuild all holes
-            // so the mask is current at the moment the window activates.
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int else { break }
+            // Only rebuild when the clicked window belongs to a safelisted app.
+            // Non-safelisted clicks (Dock, menu bar, etc.) don't need a mask update.
+            let app = NSRunningApplication(processIdentifier: pid_t(pid))
+            guard let bundleID = app?.bundleIdentifier,
+                  bundleID != Bundle.main.bundleIdentifier,
+                  safelist.bundleIDs.contains(bundleID) else { break }
             rebuildMaskCache()
             lastAppliedSignature.removeAll()
             applyMasks()
