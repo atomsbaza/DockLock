@@ -6,6 +6,8 @@ enum LockTriggerType: String, Codable {
     case panic
     case intruderCapture
     case shoulderSurfer
+    case presentationMode
+    case presentationModeRelease
 }
 
 struct LockEvent: Identifiable, Codable {
