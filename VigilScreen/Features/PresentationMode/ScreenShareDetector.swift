@@ -82,6 +82,10 @@ final class ScreenShareDetector: ObservableObject {
 
     func removeFromWatchlist(_ bundleID: String) {
         watchedBundleIDs.remove(bundleID)
+        watchedRunningApps.remove(bundleID)
+        if watchedRunningApps.isEmpty {
+            stopPolling()
+        }
     }
 
     func syncWatchlistFromCloud(_ store: NSUbiquitousKeyValueStore) {
