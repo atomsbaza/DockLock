@@ -50,6 +50,7 @@ class PanicModeManager: ObservableObject {
     // the user clicks a safelisted app — by the time the activation notification
     // fires the mask is already correct.
     private var clickEventTap: CFMachPort?
+    private var clickEventTapSource: CFRunLoopSource?
 
     // Vigil Screen's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
@@ -562,26 +563,41 @@ class PanicModeManager: ObservableObject {
             place: .headInsertEventTap,
             options: .listenOnly,
             eventsOfInterest: mask,
-            callback: { _, _, event, refcon -> Unmanaged<CGEvent>? in
-                // Tap is added to the main run loop, so this runs on the main thread.
-                if let refcon {
-                    let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
-                    MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
+            callback: { _, eventType, event, refcon -> Unmanaged<CGEvent>? in
+                // Tap runs on the main thread (added to CFRunLoopGetMain).
+                guard let refcon else { return Unmanaged.passRetained(event) }
+                let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
+                // Re-enable after system-initiated disable (timeout or user input).
+                // Without this the no-flash guarantee silently stops working.
+                if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
+                    MainActor.assumeIsolated {
+                        if let tap = mgr.clickEventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+                    }
+                    return Unmanaged.passRetained(event)
                 }
+                MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
                 return Unmanaged.passRetained(event)
             },
             userInfo: ptr
-        ) else { return }
+        ) else {
+            print("[PanicMode] CGEvent tap creation failed — Accessibility permission may not be granted. Safelisted-app no-flash switching is degraded.")
+            return
+        }
         let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         clickEventTap = tap
+        clickEventTapSource = src
     }
 
     private func stopClickMonitoring() {
         if let tap = clickEventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             clickEventTap = nil
+        }
+        if let src = clickEventTapSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
+            clickEventTapSource = nil
         }
     }
 
