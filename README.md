@@ -274,7 +274,7 @@ A: Yes. Optimized for M1/M2/M3/M4 Macs.
 
 ## Known Issues
 
-No known issues. Multi-display Panic Mode behavior is verified on macOS Sequoia with external monitors of differing resolutions.
+No known issues.
 
 ---
 
