@@ -254,7 +254,7 @@ class PanicModeManager: ObservableObject {
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] ?? []
 
-        for app in NSWorkspace.shared.runningApplications {
+        for app in WorkspaceObserver.shared.runningApps {
             guard let id = app.bundleIdentifier,
                   safelist.bundleIDs.contains(id),
                   !app.isHidden,
@@ -535,7 +535,11 @@ class PanicModeManager: ObservableObject {
         // the new window order but the stale mask (the "blur flash").
         center.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
-            .sink { [weak self] app in self?.updateBlurOverlay(for: app) }
+            .sink { [weak self] app in
+                guard let self else { return }
+                if !self.isSafelisted(app) { _ = app.hide() }
+                self.updateBlurOverlay(for: app)
+            }
             .store(in: &panicCancellables)
 
         // On Space switch, bring overlays to the front of the screenSaver level.
