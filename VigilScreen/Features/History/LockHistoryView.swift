@@ -105,8 +105,8 @@ struct LockHistoryView: View {
         case .panic:           return "eye.slash"
         case .intruderCapture: return "person.fill.questionmark"
         case .shoulderSurfer:  return "eye.trianglebadge.exclamationmark"
-        case .presentationMode: return "eye.slash"
-        case .presentationModeRelease: return "eye.slash"
+        case .presentationMode: return "rectangle.on.rectangle"
+        case .presentationModeRelease: return "rectangle.on.rectangle"
         }
     }
 
@@ -116,8 +116,8 @@ struct LockHistoryView: View {
         case .panic:           return .red
         case .intruderCapture: return .orange
         case .shoulderSurfer:  return .purple
-        case .presentationMode: return .red
-        case .presentationModeRelease: return .red
+        case .presentationMode: return .green
+        case .presentationModeRelease: return .green.opacity(0.6)
         }
     }
 
