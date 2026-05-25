@@ -13,9 +13,9 @@ Sequence on trigger:
 6. 400ms later: re-hide newly-windowed apps
 7. Release: `LAPolicy.deviceOwnerAuthentication`; failure → `IntruderCaptureManager`
 
-Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindowListCopyWindowInfo`. CGEvent tap intercepts left-mouse-down to pre-apply hole before activation. Persisted as `UserDefaults["panicBlocklist"]` (JSON `[String]`).
+Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindowListCopyWindowInfo`. CGEvent tap intercepts left-mouse-down to pre-apply hole before activation. Overlay backing layer is opaque black (`NSColor.black`) — `.behindWindow` blur engagement is gated by `win.isOpaque = false`, not layer alpha; opaque backing prevents bleed-through during hide() latency. Persisted as `UserDefaults["panicBlocklist"]` (JSON `[String]`).
 
-**v0.4.0 refactor:** `PanicModeManager` reads `WorkspaceObserver.shared.runningApps` (cached) instead of `NSWorkspace.shared.runningApplications` at trigger time. During active panic, `didActivateApplicationNotification` immediately `.hide()`s non-safelisted apps (event-driven, replaces 400ms timer).
+**v0.4.0 refactor:** `PanicModeManager` reads `WorkspaceObserver.shared.runningApps` (cached) instead of `NSWorkspace.shared.runningApplications` at trigger time. During active panic, `didActivateApplicationNotification` immediately `.hide()`s non-safelisted apps (event-driven, replaces 400ms timer). A second `.cghidEventTap` (`.defaultTap`, not `.listenOnly`) consumes Cmd+Tab (keyCode 48) and Cmd+\` (keyCode 50) keyDown events while panic is active — the Dock app-switcher never receives them, preventing non-safelisted activation at the source. Both taps include a `tapDisabledByTimeout`/`tapDisabledByUserInput` watchdog that re-enables them if the kernel disables them.
 
 ## Presentation Mode (`Features/PresentationMode/`)
 - `WorkspaceObserver` (Core): singleton owning all `NSWorkspace.shared.notificationCenter` subscriptions; caches `runningApps`, exposes `appLaunched`/`appTerminated`/`appActivated` subjects. No `.receive(on: DispatchQueue.main)` — NSWorkspace notifications already arrive on main thread; adding the hop causes blur-flash regression.

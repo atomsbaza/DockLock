@@ -50,6 +50,7 @@ class PanicModeManager: ObservableObject {
     // the user clicks a safelisted app — by the time the activation notification
     // fires the mask is already correct.
     private var clickEventTap: CFMachPort?
+    private var keyboardEventTap: CFMachPort?
 
     // Vigil Screen's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
@@ -91,11 +92,11 @@ class PanicModeManager: ObservableObject {
         // on the blur. Safelisted-app holes show through both layers.
         let cover = NSView(frame: NSRect(origin: .zero, size: overlay.size))
         cover.wantsLayer = true
-        // alpha < 1 keeps the window content non-opaque so NSVisualEffectView's
-        // .behindWindow compositor blur engages. The layer is only a fallback for
-        // displays where the blur fails to render; the blur on top is opaque enough
-        // to hide content where it does render.
-        cover.layer?.backgroundColor = NSColor(white: 0.05, alpha: 0.6).cgColor
+        // Fully opaque black backing. .behindWindow blur is gated by win.isOpaque = false
+        // (set above), not by this layer's alpha. Opaque black ensures nothing bleeds
+        // through the overlay during the 1–16 ms window before .hide() fires on a
+        // non-safelisted app. NSVisualEffectView on top still provides the blur aesthetic.
+        cover.layer?.backgroundColor = NSColor.black.cgColor
         cover.autoresizingMask = [.width, .height]
 
         let blur = NSVisualEffectView(frame: NSRect(origin: .zero, size: overlay.size))
@@ -472,6 +473,7 @@ class PanicModeManager: ObservableObject {
 
         startMonitoringSpaceSwitches()
         startClickMonitoring()
+        startKeyboardTap()
 
         // Keep overlays at the top every 250 ms. Rebuild the mask for the current
         // frontmost safelisted app, but ONLY apply it if the window rects actually
@@ -569,8 +571,17 @@ class PanicModeManager: ObservableObject {
             place: .headInsertEventTap,
             options: .listenOnly,
             eventsOfInterest: mask,
-            callback: { _, _, event, refcon -> Unmanaged<CGEvent>? in
+            callback: { _, eventType, event, refcon -> Unmanaged<CGEvent>? in
                 // Tap is added to the main run loop, so this runs on the main thread.
+                if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
+                    if let refcon {
+                        let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
+                        MainActor.assumeIsolated {
+                            if let tap = mgr.clickEventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+                        }
+                    }
+                    return nil
+                }
                 if let refcon {
                     let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
                     MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
@@ -578,7 +589,10 @@ class PanicModeManager: ObservableObject {
                 return Unmanaged.passRetained(event)
             },
             userInfo: ptr
-        ) else { return }
+        ) else {
+            print("[PanicMode] CGEvent.tapCreate failed for click tap — pre-emptive hole updates disabled")
+            return
+        }
         let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
@@ -589,6 +603,50 @@ class PanicModeManager: ObservableObject {
         if let tap = clickEventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             clickEventTap = nil
+        }
+    }
+
+    private func startKeyboardTap() {
+        guard keyboardEventTap == nil else { return }
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let ptr = Unmanaged.passUnretained(self).toOpaque()
+        guard let tap = CGEvent.tapCreate(
+            tap: .cghidEventTap,        // HID layer — fires before Dock's app-switcher
+            place: .headInsertEventTap,
+            options: .defaultTap,       // NOT .listenOnly — must return nil to consume
+            eventsOfInterest: mask,
+            callback: { _, eventType, event, refcon -> Unmanaged<CGEvent>? in
+                if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
+                    if let refcon {
+                        let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
+                        MainActor.assumeIsolated {
+                            if let tap = mgr.keyboardEventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+                        }
+                    }
+                    return nil
+                }
+                let flags = event.flags
+                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                if flags.contains(.maskCommand) && (keyCode == 48 || keyCode == 50) {
+                    return nil  // consume Cmd+Tab and Cmd+`
+                }
+                return Unmanaged.passRetained(event)
+            },
+            userInfo: ptr
+        ) else {
+            print("[PanicMode] CGEvent.tapCreate failed for keyboard tap — Cmd+Tab not blocked")
+            return
+        }
+        let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        keyboardEventTap = tap
+    }
+
+    private func stopKeyboardTap() {
+        if let tap = keyboardEventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            keyboardEventTap = nil
         }
     }
 
@@ -749,6 +807,7 @@ class PanicModeManager: ObservableObject {
         isAuthenticating = false
         panicCancellables.removeAll()
         stopClickMonitoring()
+        stopKeyboardTap()
         restoreVigilWindows()
         dismissAllOverlays()
         unhideStageManager()
@@ -763,6 +822,7 @@ class PanicModeManager: ObservableObject {
         isAuthenticating = false
         panicCancellables.removeAll()
         stopClickMonitoring()
+        stopKeyboardTap()
         restoreVigilWindows()
         dismissAllOverlays()
         isActive = false

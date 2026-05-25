@@ -69,6 +69,13 @@ final class PanicModeStateTests: XCTestCase {
         XCTAssertTrue(PanicModeManager.shared.isSafelisted(NSRunningApplication.current))
     }
 
+    @MainActor func testHandleAppActivation_nonSafelisted_duringPanic_doesNotCrash() {
+        PanicModeManager.shared.triggerPanic()
+        // Non-safelisted activation calls .hide() then rebuilds masks — panic must stay active.
+        PanicModeManager.shared.handleAppActivation(NSRunningApplication.current)
+        XCTAssertTrue(PanicModeManager.shared.isActive)
+    }
+
     @MainActor func testHandleAppActivation_safelistedApp_doesNotHide() {
         // Safelist the test process so handleAppActivation skips .hide() on it.
         // Verifies the handler respects the safelisted guard during active panic.
