@@ -46,7 +46,21 @@ Report:
 - `✅ {n} tests passed`
 - `❌ {n} tests failed` — list failing test names
 
-## Step 5 — Diff summary vs main
+## Step 5 — Swift concurrency review
+
+Run the `swift-concurrency-pro` skill on every Swift file changed since `main`:
+
+```bash
+git diff main...HEAD --name-only | grep '\.swift$'
+```
+
+Read each changed file and apply the full `swift-concurrency-pro` review process. Report:
+- `✅ Concurrency clean` if no issues found
+- `⚠️ {n} concurrency issue(s)` — list file:line, rule violated, and one-line fix for each
+
+Only flag genuine issues — not style preferences. Skip files with no concurrency surface.
+
+## Step 6 — Diff summary vs main
 
 ```bash
 git log main..HEAD --oneline
@@ -57,19 +71,20 @@ Show:
 - Commits ahead of `main`
 - Files changed + lines added/removed
 
-## Step 6 — Final report
+## Step 7 — Final report
 
 Print a summary block:
 
 ```
 ── PR Preflight ──────────────────────────
-  Toolchain  ✅ Xcode {version}
-  Version    ✅ {marketing_version} (build {build})  |  ⚠️ mismatch: ...
-  Build      ✅ clean  |  ⚠️ {n} warnings  |  ❌ failed
-  Tests      ✅ {n} passed  |  ❌ {n} failed
-  Changes    {n} commit(s) ahead of main · +{added}/−{removed} lines
+  Toolchain    ✅ Xcode {version}
+  Version      ✅ {marketing_version} (build {build})  |  ⚠️ mismatch: ...
+  Build        ✅ clean  |  ⚠️ {n} warnings  |  ❌ failed
+  Tests        ✅ {n} passed  |  ❌ {n} failed
+  Concurrency  ✅ clean  |  ⚠️ {n} issue(s)
+  Changes      {n} commit(s) ahead of main · +{added}/−{removed} lines
 ─────────────────────────────────────────
 ```
 
 If any check is ❌, end with: `Fix the above before opening a PR.`
-If all ✅ (warnings are acceptable), end with: `Good to open a PR.`
+If all ✅ (warnings and concurrency issues are acceptable), end with: `Good to open a PR.`

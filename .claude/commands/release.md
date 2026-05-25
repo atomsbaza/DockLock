@@ -2,7 +2,7 @@
 description: Notarize, package, upload, and update Homebrew cask for a new Vigil Screen release
 ---
 
-You are the **Vigil Screen release orchestrator**. You coordinate two sub-agents (`release-preflight` and `release-publish`) and handle the two human pause points. Be terse — one line per step result.
+You are the **Vigil Screen release orchestrator**. Be terse — one line per step result.
 
 ## Constants
 
@@ -11,6 +11,14 @@ You are the **Vigil Screen release orchestrator**. You coordinate two sub-agents
 - **Bundle ID:** `com.pisit.koolplukpol.VigilScreen`
 - **Team ID:** `VPTPA7XM79`
 - **Default export path:** `~/Desktop/VigilScreen-export/`
+
+## Output style
+
+- One line per step result: `✅ done` / `❌ failed — {reason}` / `⏸ waiting on user`
+- No narration of commands being run
+- Surface errors verbatim so the user can act on them
+
+---
 
 ## Step 1 — Pre-flight (run automatically)
 
@@ -32,6 +40,8 @@ Show result:
 ✅ Pre-flight passed — shipping v{version} from commit {hash}
 ```
 
+---
+
 ## Step 2 — Xcode export (USER STEP)
 
 Tell the user:
@@ -46,18 +56,54 @@ Tell the user:
 
 Wait for the user's reply. Extract export path from their message if they provide one, otherwise use the default.
 
-## Step 3 — Spawn release-preflight
+---
 
-Spawn the `release-preflight` sub-agent with:
-- `version` = the confirmed version
-- `export_path` = path from step 2
+## Step 3 — Package DMG
 
-Wait for it to complete. If it fails, stop and surface the error. Do not continue to publish.
+Find the exported `.app`:
 
-On success, read `/tmp/vigil-release-state.json` and show:
+```bash
+find "{export_path}" -name "VigilScreen.app" -maxdepth 3 | head -1
+```
+
+If not found, stop and ask the user to check the export path.
+
+Create a DMG:
+
+```bash
+DMG="$TMPDIR/VigilScreen-{version}.dmg"
+hdiutil create -volname "VigilScreen {version}" \
+  -srcfolder "{app_path}" \
+  -ov -format UDZO \
+  -o "$DMG"
+```
+
+Compute SHA256 and size:
+
+```bash
+shasum -a 256 "$DMG"
+du -sh "$DMG"
+```
+
+Store state for later steps:
+
+```bash
+cat > /tmp/vigil-release-state.json <<EOF
+{
+  "version": "{version}",
+  "dmg_path": "$DMG",
+  "sha256": "{sha256}",
+  "size": "{size}"
+}
+EOF
+```
+
+Show:
 ```
 ✅ DMG ready — {size} — SHA256: {sha256}
 ```
+
+---
 
 ## Step 4 — Publish confirmation (USER STEP)
 
@@ -71,14 +117,78 @@ Ask:
 
 Wait for explicit confirmation. If the user says no, stop cleanly.
 
-## Step 5 — Spawn release-publish
+---
 
-Spawn the `release-publish` sub-agent. It will run automatically through GitHub release creation, then pause again before pushing the cask — that's the sub-agent's own confirmation gate, handled internally.
+## Step 5 — Create GitHub release and upload DMG
 
-Wait for it to complete and surface its final summary to the user.
+```bash
+gh release create "v{version}" \
+  --repo atomsbaza/VigilScreen \
+  --title "VigilScreen {version}" \
+  --notes "" \
+  "{dmg_path}#VigilScreen-{version}.dmg"
+```
 
-## Output style
+Get the download URL:
 
-- One line per step result: `✅ done` / `❌ failed — {reason}` / `⏸ waiting on user`
-- No narration of commands being run
-- Surface errors verbatim so the user can act on them
+```bash
+gh release view "v{version}" --repo atomsbaza/VigilScreen \
+  --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl'
+```
+
+Show:
+```
+✅ GitHub release created — {download_url}
+```
+
+---
+
+## Step 6 — Update Homebrew cask
+
+Clone (or pull) the tap:
+
+```bash
+if [ -d "/tmp/homebrew-tap" ]; then
+  git -C /tmp/homebrew-tap pull --ff-only
+else
+  gh repo clone atomsbaza/homebrew-tap /tmp/homebrew-tap
+fi
+```
+
+Find the cask file:
+
+```bash
+find /tmp/homebrew-tap -name "*.rb" | xargs grep -l "VigilScreen\|vigil-screen\|vigilscreen" | head -1
+```
+
+Update `version`, `url`, and `sha256` in the cask file. The url pattern is typically:
+```
+https://github.com/atomsbaza/VigilScreen/releases/download/v{version}/VigilScreen-{version}.dmg
+```
+
+Commit and push:
+
+```bash
+git -C /tmp/homebrew-tap add -A
+git -C /tmp/homebrew-tap commit -m "vigil-screen {version}"
+git -C /tmp/homebrew-tap push
+```
+
+Show:
+```
+✅ Homebrew cask updated — v{version}
+```
+
+---
+
+## Step 7 — Final summary
+
+```
+── Release complete ──────────────────────────
+  Version    v{version}
+  GitHub     https://github.com/atomsbaza/VigilScreen/releases/tag/v{version}
+  DMG        VigilScreen-{version}.dmg ({size})
+  SHA256     {sha256}
+  Homebrew   cask pushed to atomsbaza/homebrew-tap
+─────────────────────────────────────────────
+```
