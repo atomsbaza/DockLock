@@ -2,10 +2,67 @@ import AppKit
 import LocalAuthentication
 import Combine
 import QuartzCore
+import CoreAudio
 
 private extension NSScreen {
     var displayID: CGDirectDisplayID {
         (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+    }
+}
+
+/// Mutes the default system output device on panic and restores the prior mute
+/// state on release. macOS has no per-app mute, so the only honest option is to
+/// silence the whole output. Volume is left untouched — only the mute flag is
+/// toggled — so the user's level is preserved across the round-trip.
+private final class AudioMuteController {
+    private var savedMuteState: UInt32?
+
+    private func defaultOutputDevice() -> AudioDeviceID? {
+        var device: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &addr, 0, nil, &size, &device
+        )
+        return status == noErr ? device : nil
+    }
+
+    private func muteAddress() -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+    }
+
+    func muteAndRemember() {
+        guard let device = defaultOutputDevice() else { return }
+        var addr = muteAddress()
+        var current: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &current) == noErr else { return }
+        savedMuteState = current
+        if current == 0 {
+            var muted: UInt32 = 1
+            AudioObjectSetPropertyData(device, &addr, 0, nil, size, &muted)
+        }
+    }
+
+    func restore() {
+        guard let saved = savedMuteState, let device = defaultOutputDevice() else {
+            savedMuteState = nil
+            return
+        }
+        var addr = muteAddress()
+        var value = saved
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        AudioObjectSetPropertyData(device, &addr, 0, nil, size, &value)
+        savedMuteState = nil
     }
 }
 
@@ -21,6 +78,7 @@ class PanicModeManager: ObservableObject {
     private var shortcutMonitor: Any?
     private let safelist = AppSafelist.shared
     private let settings = SettingsStore.shared
+    private let audioMute = AudioMuteController()
     private var cancellables = Set<AnyCancellable>()
 
     // One overlay per screen, always at .screenSaver (1000) during panic.
@@ -51,6 +109,7 @@ class PanicModeManager: ObservableObject {
     // fires the mask is already correct.
     private var clickEventTap: CFMachPort?
     private var keyboardEventTap: CFMachPort?
+    private var clickEventTapSource: CFRunLoopSource?
 
     // Vigil Screen's own windows (settings, popover) are raised above the overlay during panic
     // so the user can still interact with them.
@@ -160,11 +219,15 @@ class PanicModeManager: ObservableObject {
         }
 
         // Create and show overlays only for newly connected screens
+        var addedScreen = false
         for screen in currentScreens where overlayWindows[screen.displayID] == nil {
             let win = overlayWindow(for: screen)
             win.alphaValue = 1
             win.orderFrontRegardless()
+            addedScreen = true
         }
+        // Apply holes immediately so new displays don't show full-blur for up to 250ms
+        if addedScreen { updateOverlayMasks() }
     }
 
     // MARK: - Vigil Screen Window Level Management
@@ -385,6 +448,9 @@ class PanicModeManager: ObservableObject {
                 let maskLayer = contentLayer.mask ?? CALayer()
                 maskLayer.contents = cgImg
                 maskLayer.frame = CGRect(origin: .zero, size: contentLayer.bounds.size)
+                let scale = NSScreen.screens.first { $0.displayID == displayID }?.backingScaleFactor ?? 1.0
+                maskLayer.contentsScale = scale
+                maskLayer.contentsGravity = .resize
                 contentLayer.mask = maskLayer
             } else {
                 contentLayer.mask = nil
@@ -453,6 +519,9 @@ class PanicModeManager: ObservableObject {
         hideStageManager()
 
         isActive = true
+
+        if settings.panicAutoMuteAudio { audioMute.muteAndRemember() }
+        if settings.panicClearClipboard { NSPasteboard.general.clearContents() }
 
         // Raise Vigil Screen's own windows above the overlay so the user can still
         // access settings and the menu bar popover during panic.
@@ -572,37 +641,40 @@ class PanicModeManager: ObservableObject {
             options: .listenOnly,
             eventsOfInterest: mask,
             callback: { _, eventType, event, refcon -> Unmanaged<CGEvent>? in
-                // Tap is added to the main run loop, so this runs on the main thread.
+                // Tap runs on the main thread (added to CFRunLoopGetMain).
+                guard let refcon else { return Unmanaged.passRetained(event) }
+                let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
+                // Re-enable after system-initiated disable (timeout or user input).
+                // Without this the no-flash guarantee silently stops working.
                 if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
-                    if let refcon {
-                        let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
-                        MainActor.assumeIsolated {
-                            if let tap = mgr.clickEventTap { CGEvent.tapEnable(tap: tap, enable: true) }
-                        }
+                    MainActor.assumeIsolated {
+                        if let tap = mgr.clickEventTap { CGEvent.tapEnable(tap: tap, enable: true) }
                     }
-                    return nil
+                    return Unmanaged.passRetained(event)
                 }
-                if let refcon {
-                    let mgr = Unmanaged<PanicModeManager>.fromOpaque(refcon).takeUnretainedValue()
-                    MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
-                }
+                MainActor.assumeIsolated { mgr.preemptiveHoleUpdate(at: event.location) }
                 return Unmanaged.passRetained(event)
             },
             userInfo: ptr
         ) else {
-            print("[PanicMode] CGEvent.tapCreate failed for click tap — pre-emptive hole updates disabled")
+            print("[PanicMode] CGEvent tap creation failed — Accessibility permission may not be granted. Safelisted-app no-flash switching is degraded.")
             return
         }
         let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         clickEventTap = tap
+        clickEventTapSource = src
     }
 
     private func stopClickMonitoring() {
         if let tap = clickEventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             clickEventTap = nil
+        }
+        if let src = clickEventTapSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), src, .commonModes)
+            clickEventTapSource = nil
         }
     }
 
@@ -671,9 +743,13 @@ class PanicModeManager: ObservableObject {
                   let cgBounds = CGRect(dictionaryRepresentation: boundsNS as CFDictionary),
                   cgBounds.width > 1, cgBounds.height > 10,
                   cgBounds.contains(cgPoint) else { continue }
-            guard info[kCGWindowOwnerPID as String] is Int else { break }
-            // Whether the clicked window is safelisted or not, rebuild all holes
-            // so the mask is current at the moment the window activates.
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int else { break }
+            // Only rebuild when the clicked window belongs to a safelisted app.
+            // Non-safelisted clicks (Dock, menu bar, etc.) don't need a mask update.
+            let app = NSRunningApplication(processIdentifier: pid_t(pid))
+            guard let bundleID = app?.bundleIdentifier,
+                  bundleID != Bundle.main.bundleIdentifier,
+                  safelist.bundleIDs.contains(bundleID) else { break }
             rebuildMaskCache()
             lastAppliedSignature.removeAll()
             applyMasks()
@@ -800,6 +876,7 @@ class PanicModeManager: ObservableObject {
     }
 
     private func unhideAll() {
+        audioMute.restore()
         panicTask?.cancel()
         panicTask = nil
         pendingActivationWork?.cancel()

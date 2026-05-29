@@ -24,6 +24,14 @@ struct LockEvent: Identifiable, Codable {
         self.trigger = trigger
         self.photoFilename = photoFilename
     }
+
+    // Internal init for tests that need a fixed ID to verify merge behaviour.
+    init(id: UUID, trigger: LockTriggerType) {
+        self.id = id
+        self.date = Date()
+        self.trigger = trigger
+        self.photoFilename = nil
+    }
 }
 
 class LockHistoryStore: ObservableObject {
@@ -84,10 +92,15 @@ class LockHistoryStore: ObservableObject {
         guard let data = store.data(forKey: key),
               let cloudEvents = try? decoder.decode([LockEvent].self, from: data),
               !cloudEvents.isEmpty else { return }
-        let merged = Dictionary((events + cloudEvents).map { ($0.id, $0) }, uniquingKeysWith: { local, _ in local })
-        events = merged.values.sorted { $0.date > $1.date }
+        events = Self.merge(local: events, cloud: cloudEvents)
         if events.count > maxEvents { events = Array(events.prefix(maxEvents)) }
         save()
+    }
+
+    // Internal for testability — pure merge with local-wins policy.
+    static func merge(local: [LockEvent], cloud: [LockEvent]) -> [LockEvent] {
+        let merged = Dictionary((local + cloud).map { ($0.id, $0) }, uniquingKeysWith: { l, _ in l })
+        return merged.values.sorted { $0.date > $1.date }
     }
 
     func applyCloudUpdate(_ store: NSUbiquitousKeyValueStore) {
