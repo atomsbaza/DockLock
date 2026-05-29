@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.swift"
+---
+
 ## Swift 6 Concurrency
 - `@MainActor` on all classes touching UI, `NSApplication`, `NSWindow`, status items
 - `Sendable` on types crossing actor boundaries
