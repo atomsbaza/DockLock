@@ -24,6 +24,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
 
     /// Set when we were the ones who triggered panic; allows auto-release.
     private var didAutoTrigger = false
+    private var triggerTime: Date?
     private var releaseTask: Task<Void, Never>?
 
     // Maps sensitivity 0.0–1.0 to a required consecutive-frame count.
@@ -57,8 +58,16 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
             .sink { [weak self] active in
                 guard let self else { return }
                 if !active {
+                    // Check for implicit false positive before resetting state.
+                    if let t = self.triggerTime {
+                        self.handlePanicRelease(
+                            didAutoTrigger: self.didAutoTrigger,
+                            panicDuration: Date().timeIntervalSince(t)
+                        )
+                    }
                     // Panic was released — reset state and resume detection.
                     self.didAutoTrigger = false
+                    self.triggerTime = nil
                     self.cancelReleaseCountdown()
                     if SettingsStore.shared.shoulderSurfingEnabled {
                         self.requestPermissionAndStart()
@@ -158,6 +167,19 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
         releaseCountdownActive = false
     }
 
+    // MARK: - False positive feedback
+
+    func recordFalsePositive() {
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount += 1
+    }
+
+    func handlePanicRelease(didAutoTrigger: Bool, panicDuration: TimeInterval) {
+        guard didAutoTrigger else { return }
+        if panicDuration < 5 {
+            recordFalsePositive()
+        }
+    }
+
     // MARK: - Trigger + release logic (MainActor)
 
     private func handleFaceCount(_ count: Int) {
@@ -186,6 +208,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
             if consecutiveMultiFaceFrames >= triggerThreshold {
                 consecutiveMultiFaceFrames = 0
                 didAutoTrigger = true
+                triggerTime = Date()
                 LockHistoryStore.shared.record(.shoulderSurfer)
                 PanicModeManager.shared.triggerPanic()
             }
