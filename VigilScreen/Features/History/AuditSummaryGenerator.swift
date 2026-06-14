@@ -34,6 +34,16 @@ final class AuditSummaryGenerator {
             : "\(lines)\nSummarise this privacy session in 2–3 plain sentences."
     }
 
+    // MARK: - Generation
+
+    @available(macOS 26, *)
+    func generate(from events: [LockEvent]) async throws -> String {
+        let prompt = buildPrompt(from: events)
+        let session = LanguageModelSession()
+        let response = try await session.respond(to: prompt)
+        return response.content
+    }
+
     // MARK: - Private
 
     private func triggerLabel(for trigger: LockTriggerType) -> String {
