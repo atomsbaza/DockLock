@@ -89,6 +89,35 @@ struct ShoulderSurfingView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if settings.shoulderSurfingFalsePositiveCount >= 3 {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("3 false triggers detected — reduce sensitivity?")
+                                .font(.body)
+                            Text("Faces on screens, TVs, or mirrors may be causing false alarms.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Button("Reduce Sensitivity") {
+                            settings.shoulderSurfingSensitivity = max(0.0, settings.shoulderSurfingSensitivity - 0.25)
+                            settings.shoulderSurfingFalsePositiveCount = 0
+                        }
+                        Spacer()
+                        Button("Dismiss") {
+                            settings.shoulderSurfingFalsePositiveCount = 0
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Sensitivity Suggestion")
+                }
+            }
         }
         .formStyle(.grouped)
         .navigationTitle("Shoulder Surfing")
