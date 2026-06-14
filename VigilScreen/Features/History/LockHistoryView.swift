@@ -53,33 +53,45 @@ struct LockHistoryView: View {
 
     private var eventList: some View {
         List(history.events) { event in
-            HStack(spacing: 12) {
-                // Icon
-                Image(systemName: iconName(for: event.trigger))
-                    .font(.system(size: 14))
-                    .foregroundColor(iconColor(for: event.trigger))
-                    .frame(width: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    // Icon
+                    Image(systemName: iconName(for: event.trigger))
+                        .font(.system(size: 14))
+                        .foregroundColor(iconColor(for: event.trigger))
+                        .frame(width: 24)
 
-                // Label + relative time
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label(for: event.trigger))
-                        .font(.body)
-                    Text(event.date, style: .relative)
+                    // Label + relative time
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(label(for: event.trigger))
+                            .font(.body)
+                        Text(event.date, style: .relative)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    // Intruder photo thumbnail
+                    if let url = history.photoURL(for: event) {
+                        photoThumbnail(url: url)
+                    }
+
+                    // Formatted date
+                    Text(event.date.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Spacer()
-
-                // Intruder photo thumbnail
-                if let url = history.photoURL(for: event) {
-                    photoThumbnail(url: url)
-                }
-
-                // Formatted date
-                Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                if event.trigger == .shoulderSurfer {
+                    Button("Not a real threat") {
+                        ShoulderSurfingDetector.shared.recordFalsePositive()
+                    }
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
+                    .buttonStyle(.plain)
+                    .padding(.leading, 36)
+                }
             }
             .padding(.vertical, 2)
         }
