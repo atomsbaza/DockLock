@@ -5,6 +5,12 @@ struct LockHistoryView: View {
     @State private var showingClearConfirm = false
     @State private var selectedPhoto: URL?
 
+    // Internal (not private) so SummarySheet at file scope can reference it.
+    enum SummaryState: Equatable {
+        case idle, loading, result(String), failed
+    }
+    @State private var summaryState: SummaryState = .idle
+
     var body: some View {
         Group {
             if history.events.isEmpty {
@@ -16,6 +22,12 @@ struct LockHistoryView: View {
         .navigationTitle("History")
         .sheet(item: $selectedPhoto) { url in
             PhotoDetailSheet(photoURL: url)
+        }
+        .sheet(isPresented: Binding(
+            get: { summaryState != .idle },
+            set: { if !$0 { summaryState = .idle } }
+        )) {
+            SummarySheet(state: summaryState) { summaryState = .idle }
         }
     }
 
@@ -76,10 +88,42 @@ struct LockHistoryView: View {
                 Button("Clear") { showingClearConfirm = true }
                     .foregroundColor(.red)
             }
+            if AuditSummaryGenerator.shared.isAvailable {
+                ToolbarItem(placement: .automatic) {
+                    summarizeButton
+                }
+            }
         }
         .confirmationDialog("Clear all history?", isPresented: $showingClearConfirm) {
             Button("Clear All", role: .destructive) { history.clear() }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private var summarizeButton: some View {
+        if summaryState == .loading {
+            ProgressView()
+                .scaleEffect(0.7)
+        } else {
+            Button("Summarize session") {
+                guard summaryState != .loading else { return }
+                summaryState = .loading
+                let events = history.events
+                Task { @MainActor in
+                    if #available(macOS 26, *) {
+                        do {
+                            let text = try await AuditSummaryGenerator.shared.generate(from: events)
+                            summaryState = .result(text)
+                        } catch {
+                            summaryState = .failed
+                        }
+                    } else {
+                        summaryState = .failed
+                    }
+                }
+            }
+            .disabled(history.events.isEmpty)
         }
     }
 
@@ -164,6 +208,42 @@ private struct PhotoDetailSheet: View {
             }
         }
         .frame(width: 480, height: 400)
+    }
+}
+
+// MARK: - Summary sheet
+
+private struct SummarySheet: View {
+    let state: LockHistoryView.SummaryState
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Session Summary")
+                    .font(.headline)
+                Spacer()
+                Button("Done") { onDismiss() }
+            }
+
+            Divider()
+
+            switch state {
+            case .idle, .loading:
+                ProgressView("Generating summary…")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            case .result(let text):
+                Text(text)
+                    .font(.body)
+            case .failed:
+                Text("Summary unavailable — try again.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .frame(width: 420, height: 200)
     }
 }
 
