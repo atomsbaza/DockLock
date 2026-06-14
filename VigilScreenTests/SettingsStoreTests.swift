@@ -74,4 +74,50 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(saved, !original)
         SettingsStore.shared.panicClearClipboard = original
     }
+
+    // MARK: - False positive counter
+
+    @MainActor func testFalsePositiveCount_defaultZero() {
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingFalsePositiveCount, 0)
+    }
+
+    @MainActor func testFalsePositiveCount_threeOrMore_bannerConditionTrue() {
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 3
+        XCTAssertGreaterThanOrEqual(SettingsStore.shared.shoulderSurfingFalsePositiveCount, 3)
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+    }
+
+    @MainActor func testReduceSensitivity_decrementsBy0_25() {
+        SettingsStore.shared.shoulderSurfingSensitivity = 0.75
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 3
+        SettingsStore.shared.shoulderSurfingSensitivity = max(0.0, SettingsStore.shared.shoulderSurfingSensitivity - 0.25)
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingSensitivity, 0.5, accuracy: 0.001)
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingFalsePositiveCount, 0)
+    }
+
+    @MainActor func testReduceSensitivity_floor_doesNotGoBelowZero() {
+        SettingsStore.shared.shoulderSurfingSensitivity = 0.0
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 3
+        SettingsStore.shared.shoulderSurfingSensitivity = max(0.0, SettingsStore.shared.shoulderSurfingSensitivity - 0.25)
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingSensitivity, 0.0, accuracy: 0.001)
+    }
+
+    @MainActor func testDismissAction_resetsCountOnly() {
+        SettingsStore.shared.shoulderSurfingSensitivity = 0.5
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 3
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingSensitivity, 0.5, accuracy: 0.001)
+        XCTAssertEqual(SettingsStore.shared.shoulderSurfingFalsePositiveCount, 0)
+    }
+
+    @MainActor func testFalsePositiveCount_persists() {
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 2
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        let saved = UserDefaults.standard.object(forKey: "shoulderSurfingFPCount") as? Int
+        XCTAssertEqual(saved, 2)
+        SettingsStore.shared.shoulderSurfingFalsePositiveCount = 0
+    }
 }

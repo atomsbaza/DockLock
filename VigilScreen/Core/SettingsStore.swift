@@ -19,6 +19,7 @@ class SettingsStore: ObservableObject {
     @Published var shoulderSurfingAutoRelease: Bool
     @Published var shoulderSurfingReleaseDelay: Double
     @Published var presentationModeEnabled: Bool
+    @Published var shoulderSurfingFalsePositiveCount: Int
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -39,6 +40,7 @@ class SettingsStore: ObservableObject {
         shoulderSurfingAutoRelease  = d.object(forKey: Keys.shoulderSurfingAutoRelease)  as? Bool   ?? false
         shoulderSurfingReleaseDelay = d.object(forKey: Keys.shoulderSurfingReleaseDelay) as? Double ?? 5.0
         presentationModeEnabled     = d.object(forKey: Keys.presentationModeEnabled)     as? Bool   ?? true
+        shoulderSurfingFalsePositiveCount = d.object(forKey: Keys.shoulderSurfingFPCount) as? Int ?? 0
 
         persist(\.$launchAtLogin,             key: Keys.launchAtLogin,            cloud: false)
         persist(\.$panicShortcutEnabled,      key: Keys.panicShortcutEnabled)
@@ -55,6 +57,7 @@ class SettingsStore: ObservableObject {
         persist(\.$shoulderSurfingAutoRelease,  key: Keys.shoulderSurfingAutoRelease,  cloud: false)
         persist(\.$shoulderSurfingReleaseDelay, key: Keys.shoulderSurfingReleaseDelay)
         persist(\.$presentationModeEnabled,     key: Keys.presentationModeEnabled)
+        persist(\.$shoulderSurfingFalsePositiveCount, key: Keys.shoulderSurfingFPCount, cloud: false)
     }
 
     private func persist<T>(_ kp: KeyPath<SettingsStore, Published<T>.Publisher>, key: String, cloud: Bool = true) {
@@ -108,6 +111,7 @@ class SettingsStore: ObservableObject {
         static let shoulderSurfingAutoRelease  = "shoulderSurfingAutoRelease"
         static let shoulderSurfingReleaseDelay = "shoulderSurfingReleaseDelay"
         static let presentationModeEnabled     = "presentationModeEnabled"
+        static let shoulderSurfingFPCount      = "shoulderSurfingFPCount"
 
         // launchAtLogin, panicRequiresTouchID, panicAutoMuteAudio, panicClearClipboard, intruderCaptureEnabled, shoulderSurfingEnabled/AutoRelease are per-machine security controls
         static let allCloudKeys: [String] = [
