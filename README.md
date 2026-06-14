@@ -43,14 +43,18 @@ Automatically photographs anyone who fails a panic-release attempt.
 ### 👀 **Shoulder Surfing Detection**
 Automatically triggers Panic Mode when someone looks over your shoulder.
 - Continuous face detection via Vision + AVFoundation — no camera upload, fully local
+- Credibility filter ignores faces on TVs, posters, and mirrors (confidence + size thresholds)
 - Configurable sensitivity and minimum detection duration before triggering
 - Auto-release: Panic Mode lifts automatically (no Touch ID required) once the threat clears for a set delay (3–30 s)
+- **False positive learning** *(v0.5.0)*: tap "Not a real threat" in Lock History or dismiss a panic within 5 s — after 3 false positives a banner offers to lower sensitivity automatically
 - Lock History records shoulder surfing events with a purple badge
 - Toggle on/off in Settings → Shoulder Surfing
 
 ### 📋 **Lock History**
 A full audit log of every lock event.
 - Records Proximity Lock triggers, Panic Mode activations, and failed unlock attempts
+- **Session Summary** *(v0.5.0)*: on-demand plain-English summary of recent events via Apple's on-device Foundation Models — requires macOS 26 + Apple Silicon; tap "Summarize session" in the History toolbar
+- **Not a real threat** *(v0.5.0)*: explicit false positive button on shoulder surfer events — feeds the sensitivity learning loop
 - View in Settings → History
 - Clear at any time
 
@@ -353,7 +357,12 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Panic Mode now mutes system audio on trigger and restores the prior mute state on release (toggleable in Settings → Panic Mode)
 - Panic Mode now clears the clipboard on trigger — prevents bystanders from pasting copied passwords (toggleable in Settings → Panic Mode)
 
-### ✅ v0.3.4 (Current)
+### ✅ v0.5.0 (Current)
+- **Audit Log Summary**: on-demand plain-English summary of lock history via Apple Foundation Models (macOS 26 + Apple Silicon; "Summarize session" button in History)
+- **Shoulder Surfing FP Learning**: credibility filter (confidence + face size) eliminates poster/TV/mirror false positives; implicit + explicit false positive signals feed a sensitivity suggestion banner after 3 false triggers
+- "Not a real threat" button on shoulder surfer events in Lock History
+
+### ✅ v0.3.4
 - Fix: multi-display overlay — external monitors now blur correctly on macOS Sequoia
 - Fix: blur-to-hole flash eliminated — safelisted apps are always visible through holes during Panic Mode; switching to them is instantaneous with no full-blur frame
 - Fix: mask hole coordinates corrected for setups where the primary display and focused display have different heights (wrong `NSScreen.main` height was used for CG→AppKit y-flip)

@@ -29,11 +29,17 @@ Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindo
 
 ## Shoulder Surfing (`Features/ShoulderSurfing/`)
 - `AVCaptureSession` + `VNDetectFaceRectanglesRequest` at ~2 fps
-- Triggers when 2+ faces detected for `triggerThreshold` consecutive frames
+- Credibility filter on `VNFaceObservation`: `confidence >= 0.7` AND normalized `boundingBox.width × height >= 0.02` — filters out faces on TVs, posters, mirrors
+- Triggers when 2+ credible faces detected for `triggerThreshold` consecutive frames
+- **False positive feedback loop (v0.5.0):** implicit signal (panic released < 5 s after auto-trigger) + explicit "Not a real threat" button in Lock History → `recordFalsePositive()` increments `SettingsStore.shoulderSurfingFalsePositiveCount`; banner in `ShoulderSurfingView` offers to lower sensitivity after 3 FPs
 
 ## Core Services
 - `SettingsStore`: `@Published` + Combine `.sink` auto-persist to `UserDefaults` + `NSUbiquitousKeyValueStore`
 - `CloudSyncStore`: listens for external KV changes, fans out to `SettingsStore`, `AppSafelist`, `LockHistoryStore`, `ScreenShareDetector`, `PresentationSafelist`
+
+## History (`Features/History/`)
+- `LockHistoryView.swift` — audit log UI; shows all lock events with icon, relative time, and formatted date; intruder photos as thumbnails
+- `AuditSummaryGenerator.swift` — on-demand Foundation Models summary of recent lock events (macOS 26 + Apple Silicon only; `isAvailable` returns false otherwise); `generate(from:)` is `@available(macOS 26, *)`; prompt built by `buildPrompt(from:)` (internal, tested)
 
 ## State Persistence
 | Data | Store |
@@ -45,4 +51,5 @@ Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindo
 | Intruder photos | `~/Pictures/Vigil Screen Captures/<uuid>.jpg` |
 | Presentation watchlist | `UserDefaults["presentationWatchlist"]` (JSON) |
 | Presentation safelist | `UserDefaults["presentationSafelist"]` (JSON) |
+| Shoulder surfing FP counter | `UserDefaults["shoulderSurfingFPCount"]` (device-local, not cloud) |
 | Cloud sync | `NSUbiquitousKeyValueStore` |
