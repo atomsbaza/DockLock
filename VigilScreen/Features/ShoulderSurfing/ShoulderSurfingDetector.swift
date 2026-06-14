@@ -32,6 +32,13 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
         Int(2 + SettingsStore.shared.shoulderSurfingSensitivity * 4)
     }
 
+    nonisolated static let minFaceConfidence: Float = 0.7
+    nonisolated static let minFaceArea: Float = 0.02   // normalized width × height
+
+    nonisolated static func isCredibleFace(confidence: Float, boundingBoxArea: Float) -> Bool {
+        confidence >= minFaceConfidence && boundingBoxArea >= minFaceArea
+    }
+
     private override init() {
         super.init()
 
@@ -207,8 +214,14 @@ extension ShoulderSurfingDetector: AVCaptureVideoDataOutputSampleBufferDelegate 
                                              orientation: .up,
                                              options: [:])
         try? handler.perform([request])
-        let count = request.results?.count ?? 0
+        let observations = (request.results ?? []) as [VNFaceObservation]
+        let credibleCount = observations.filter {
+            ShoulderSurfingDetector.isCredibleFace(
+                confidence: $0.confidence,
+                boundingBoxArea: Float($0.boundingBox.width * $0.boundingBox.height)
+            )
+        }.count
 
-        Task { @MainActor in self.handleFaceCount(count) }
+        Task { @MainActor in self.handleFaceCount(credibleCount) }
     }
 }
