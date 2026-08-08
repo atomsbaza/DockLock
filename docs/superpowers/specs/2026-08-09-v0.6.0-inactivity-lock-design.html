@@ -1,0 +1,917 @@
+<title>Vigil Screen — Inactivity Lock Workflow</title>
+<style>
+  :root {
+    --bg: #eef1ee;
+    --surface: #ffffff;
+    --surface-2: #e3e8e3;
+    --ink: #1c2420;
+    --ink-dim: #5b6660;
+    --ink-faint: #8a948d;
+    --border: #cbd4cc;
+    --border-strong: #a9b5ac;
+    --accent: #b45f10;
+    --accent-ink: #7a3f08;
+    --accent-soft: #f3e2cc;
+    --accent-soft-border: #e0b481;
+    --ok: #2e7d4f;
+    --ok-soft: #dcecdf;
+    --danger: #b3372a;
+    --danger-soft: #f4dfda;
+    --mono-surface: #f4f2ea;
+    --mono-ink: #4a4335;
+    --node-bg: #ffffff;
+    --node-border: #b7c2ba;
+    --line: #8f9c93;
+    --shadow: 0 1px 2px rgba(28, 36, 32, 0.06), 0 8px 24px -12px rgba(28, 36, 32, 0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141815;
+      --surface: #1b201c;
+      --surface-2: #232a24;
+      --ink: #e6ebe6;
+      --ink-dim: #a3ada4;
+      --ink-faint: #75817a;
+      --border: #333d34;
+      --border-strong: #46524a;
+      --accent: #e0973f;
+      --accent-ink: #f3c78a;
+      --accent-soft: #382a17;
+      --accent-soft-border: #6b4a20;
+      --ok: #6fbf8d;
+      --ok-soft: #1e3327;
+      --danger: #e0847a;
+      --danger-soft: #3a2521;
+      --mono-surface: #20251f;
+      --mono-ink: #c7c0a8;
+      --node-bg: #1f251f;
+      --node-border: #3c473d;
+      --line: #5c6a5f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #141815;
+    --surface: #1b201c;
+    --surface-2: #232a24;
+    --ink: #e6ebe6;
+    --ink-dim: #a3ada4;
+    --ink-faint: #75817a;
+    --border: #333d34;
+    --border-strong: #46524a;
+    --accent: #e0973f;
+    --accent-ink: #f3c78a;
+    --accent-soft: #382a17;
+    --accent-soft-border: #6b4a20;
+    --ok: #6fbf8d;
+    --ok-soft: #1e3327;
+    --danger: #e0847a;
+    --danger-soft: #3a2521;
+    --mono-surface: #20251f;
+    --mono-ink: #c7c0a8;
+    --node-bg: #1f251f;
+    --node-border: #3c473d;
+    --line: #5c6a5f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    padding: clamp(1.25rem, 4vw, 3.5rem) 1.25rem 5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  code, .mono, .kbd {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  a { color: var(--accent-ink); }
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .masthead {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2.75rem;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin-bottom: 0.85rem;
+  }
+
+  .eyebrow .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+
+  .eyebrow .sep {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 0.6rem;
+  }
+
+  .masthead p {
+    color: var(--ink-dim);
+    max-width: 62ch;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  /* ---------- Sections ---------- */
+
+  section {
+    margin-bottom: 3.25rem;
+  }
+
+  section:last-of-type { margin-bottom: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .section-num {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+
+  h2 {
+    font-size: 1.24rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .section-dek {
+    color: var(--ink-dim);
+    max-width: 66ch;
+    margin: 0.5rem 0 1.5rem;
+    font-size: 0.96rem;
+  }
+
+  p { margin: 0 0 1em; }
+  .prose { max-width: 66ch; color: var(--ink); }
+  .prose p:last-child { margin-bottom: 0; }
+
+  .term {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: var(--mono-surface);
+    color: var(--mono-ink);
+    padding: 0.08em 0.4em;
+    border-radius: 4px;
+    font-size: 0.87em;
+    white-space: nowrap;
+  }
+
+  /* ---------- Diagram scaffolding ---------- */
+
+  .diagram-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .diagram-caption {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-top: 0.85rem;
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+  }
+  .diagram-caption .swatch {
+    width: 0.7em; height: 0.7em; border-radius: 2px; flex: none; margin-top: 0.15em;
+  }
+
+  /* ---------- Section 1: trigger map ---------- */
+
+  .trigger-map {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 680px;
+  }
+
+  .trigger-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-right: 2rem;
+    border-right: 2px solid var(--line);
+    flex: none;
+    width: 300px;
+  }
+
+  .trigger-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .trigger-card {
+    flex: 1 1 auto;
+    background: var(--node-bg);
+    border: 1px solid var(--node-border);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .trigger-card .t-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .trigger-card .t-detail {
+    color: var(--ink-dim);
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+  }
+
+  .trigger-card.is-new {
+    border-color: var(--accent);
+    border-width: 1.5px;
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .badge-new {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: var(--surface);
+    padding: 0.1em 0.45em;
+    border-radius: 999px;
+    line-height: 1.5;
+  }
+
+  .connector-h {
+    flex: 0 0 2rem;
+    height: 0;
+    border-top: 2px solid var(--line);
+    position: relative;
+    margin-left: 0.6rem;
+  }
+  .connector-h::after {
+    content: "";
+    position: absolute;
+    right: 0; top: 50%;
+    width: 0; height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 6px solid var(--line);
+    transform: translateY(-50%);
+  }
+
+  .spine-to-panic {
+    flex: 0 0 3.5rem;
+    height: 2px;
+    background: var(--line);
+    position: relative;
+  }
+  .spine-to-panic::after {
+    content: "";
+    position: absolute;
+    right: 0; top: 50%;
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 8px solid var(--line);
+    transform: translateY(-50%);
+  }
+
+  .panic-node {
+    flex: none;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 10px;
+    padding: 1.1rem 1.4rem;
+    text-align: center;
+    min-width: 148px;
+  }
+  .panic-node .p-title {
+    font-weight: 700;
+    font-size: 0.98rem;
+    letter-spacing: -0.01em;
+  }
+  .panic-node .p-sub {
+    font-size: 0.72rem;
+    opacity: 0.72;
+    margin-top: 0.2rem;
+  }
+
+  .release-flow {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-left: 2.75rem;
+    position: relative;
+  }
+  .release-flow::before {
+    content: "";
+    position: absolute;
+    left: -2.75rem;
+    top: 50%;
+    width: 2.75rem;
+    height: 0;
+    border-top: 2px solid var(--line);
+  }
+  .release-flow::after {
+    content: "";
+    position: absolute;
+    left: -0.1rem;
+    top: calc(50% - 5px);
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 8px solid var(--line);
+  }
+
+  .release-step {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 7px;
+    border: 1px solid var(--node-border);
+    background: var(--node-bg);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .release-step.ok { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); }
+  .release-step.danger { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+
+  /* ---------- Section 2: state machine ---------- */
+
+  .state-canvas {
+    position: relative;
+    width: 820px;
+    height: 420px;
+    min-width: 820px;
+  }
+
+  .state-node {
+    position: absolute;
+    width: 152px;
+    height: 68px;
+    background: var(--node-bg);
+    border: 1.5px solid var(--node-border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .state-node .s-name {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+  .state-node .s-desc {
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    margin-top: 0.15rem;
+  }
+  .state-node.is-fired { border-color: var(--accent); }
+  .state-node.is-fired .s-name { color: var(--accent-ink); }
+
+  .seg-h { position: absolute; height: 0; border-top: 2px solid var(--line); }
+  .seg-v { position: absolute; width: 0; border-left: 2px solid var(--line); }
+  .seg-h.dashed, .seg-v.dashed { border-style: dashed; }
+
+  .arrow-r::after, .arrow-l::before {
+    content: "";
+    position: absolute;
+    width: 0; height: 0;
+    top: -4px;
+  }
+  .arrow-r::after {
+    right: -1px;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 7px solid var(--line);
+  }
+  .arrow-down::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: -4px;
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 7px solid var(--line);
+  }
+  .arrow-up::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: -4px;
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 7px solid var(--line);
+  }
+
+  .edge-label {
+    position: absolute;
+    font-size: 0.68rem;
+    color: var(--ink-dim);
+    line-height: 1.3;
+    text-align: center;
+    width: 210px;
+  }
+  .edge-label.accent { color: var(--accent-ink); }
+  .edge-label .g {
+    display: block;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+  }
+
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    margin-top: 1rem;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+  }
+  .legend-row .item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-row .swatch-line { width: 22px; height: 0; border-top: 2px solid var(--line); }
+  .legend-row .swatch-line.dashed { border-style: dashed; border-color: var(--accent); }
+
+  /* ---------- Section 3: pipeline ---------- */
+
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: 780px;
+  }
+
+  .pipe-stage {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pipe-card {
+    background: var(--node-bg);
+    border: 1px solid var(--node-border);
+    border-radius: 9px;
+    padding: 0.75rem 0.85rem;
+    font-size: 0.8rem;
+    flex: 1;
+  }
+  .pipe-card .pc-title {
+    font-weight: 700;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78rem;
+    margin-bottom: 0.3rem;
+  }
+  .pipe-card .pc-body { color: var(--ink-dim); font-size: 0.76rem; line-height: 1.4; }
+
+  .pipe-arrow {
+    flex: 0 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    font-size: 1.1rem;
+    align-self: center;
+  }
+
+  .lane-tag {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .lane-tag.impure { background: var(--surface-2); color: var(--ink-dim); border: 1px solid var(--border); }
+  .lane-tag.pure { background: var(--accent-soft); color: var(--accent-ink); border: 1px solid var(--accent-soft-border); }
+
+  .pipe-card.pure-card { border-color: var(--accent-soft-border); background: var(--accent-soft); }
+  .pipe-card.pure-card .pc-body { color: var(--accent-ink); }
+
+  /* ---------- Section 4: guard comparison ---------- */
+
+  .guard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  .guard-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+  }
+  .guard-card .g-num {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.7rem;
+    color: var(--accent-ink);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.35rem;
+  }
+  .guard-card h3 {
+    font-size: 0.94rem;
+    margin: 0 0 0.4rem;
+  }
+  .guard-card p {
+    font-size: 0.83rem;
+    color: var(--ink-dim);
+    margin: 0;
+  }
+
+  .callout {
+    margin-top: 1rem;
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.85rem;
+    color: var(--accent-ink);
+  }
+
+  /* ---------- Section 5: settings table ---------- */
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    font-size: 0.85rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  thead th {
+    background: var(--surface-2);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-dim);
+    font-weight: 700;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-2); }
+
+  td.key { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.79rem; }
+  td .range { font-variant-numeric: tabular-nums; color: var(--ink-dim); font-size: 0.8rem; }
+
+  .sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 0.15em 0.5em;
+    border-radius: 999px;
+  }
+  .sync-pill.cloud { background: var(--ok-soft); color: var(--ok); }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow"><span class="dot"></span>Vigil Screen <span class="sep">/</span> Design Review <span class="sep">/</span> v0.6.0</div>
+    <h1>Inactivity Lock</h1>
+    <p>A visual walkthrough of the new trigger: where it sits among the app's existing paths to Panic Mode, how its state machine decides when to fire, how the evaluation loop is wired, and the guard that keeps it from misfiring during passive viewing.</p>
+  </div>
+
+  <section id="triggers">
+    <div class="section-head">
+      <span class="section-num">01</span>
+      <h2>All triggers, one map</h2>
+    </div>
+    <p class="section-dek">Five independent paths lead into Panic Mode. Inactivity Lock is the newest — everything downstream of the merge is shared with the other four.</p>
+
+    <div class="diagram-frame">
+      <div class="trigger-map">
+        <div class="trigger-list">
+          <div class="trigger-row">
+            <div class="trigger-card">
+              <div class="t-name">Panic hotkey</div>
+              <div class="t-detail">⌘⇧L, instant</div>
+            </div>
+            <div class="connector-h"></div>
+          </div>
+          <div class="trigger-row">
+            <div class="trigger-card">
+              <div class="t-name">Proximity Lock</div>
+              <div class="t-detail">paired BLE device out of range / RSSI below threshold, after countdown</div>
+            </div>
+            <div class="connector-h"></div>
+          </div>
+          <div class="trigger-row">
+            <div class="trigger-card">
+              <div class="t-name">Shoulder Surfing</div>
+              <div class="t-detail">2+ credible faces, N consecutive frames — can auto-release</div>
+            </div>
+            <div class="connector-h"></div>
+          </div>
+          <div class="trigger-row">
+            <div class="trigger-card">
+              <div class="t-name">Inactivity Lock <span class="badge-new">New</span></div>
+              <div class="t-detail">warning countdown → fire, per state machine below</div>
+            </div>
+            <div class="connector-h"></div>
+          </div>
+        </div>
+        <div class="spine-to-panic"></div>
+        <div class="panic-node">
+          <div class="p-title">Panic Mode</div>
+          <div class="p-sub">blur · hide · mute</div>
+        </div>
+        <div class="release-flow">
+          <div class="release-step ok">Touch ID ✓ → unlocked</div>
+          <div class="release-step danger">Touch ID ✗ → Intruder Capture</div>
+        </div>
+      </div>
+      <div class="diagram-caption">
+        <span>Presentation Mode is not shown converging above — a screen-share event hides non-safelisted apps directly, it does not route through Panic Mode's blur. Every trigger, Presentation Mode included, writes an entry to Lock History.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="state-machine">
+    <div class="section-head">
+      <span class="section-num">02</span>
+      <h2>Inactivity Lock state machine</h2>
+    </div>
+    <p class="section-dek">Three phases — <span class="term">waiting</span>, <span class="term">warning</span>, <span class="term">fired</span> — plus the return edges that keep the timer from re-firing every tick.</p>
+
+    <div class="diagram-frame">
+      <div class="state-canvas">
+        <div class="state-node" style="left:32px; top:176px;">
+          <div class="s-name">waiting</div>
+          <div class="s-desc">idle, no warning shown</div>
+        </div>
+        <div class="state-node" style="left:334px; top:176px;">
+          <div class="s-name">warning</div>
+          <div class="s-desc">overlay countdown visible</div>
+        </div>
+        <div class="state-node is-fired" style="left:636px; top:176px;">
+          <div class="s-name">fired</div>
+          <div class="s-desc">panic (+ lock) triggered</div>
+        </div>
+
+        <!-- waiting -> warning -->
+        <div class="seg-h arrow-r" style="left:184px; top:210px; width:150px;"></div>
+        <div class="edge-label" style="left:112px; top:216px;">
+          idle ≥ timeout − warningLead
+          <span class="g">no assertion · no panic active · warningLead &gt; 0</span>
+        </div>
+
+        <!-- warning -> fired -->
+        <div class="seg-h arrow-r" style="left:486px; top:210px; width:150px;"></div>
+        <div class="edge-label" style="left:414px; top:216px;">
+          idle ≥ timeout
+        </div>
+
+        <!-- waiting -> fired direct (warningLead == 0) -->
+        <div class="seg-v" style="left:108px; top:56px; height:120px;"></div>
+        <div class="seg-h" style="left:108px; top:56px; width:592px;"></div>
+        <div class="seg-v arrow-down" style="left:700px; top:56px; height:120px;"></div>
+        <div class="edge-label accent" style="left:295px; top:20px;">
+          warningLead == 0 & idle ≥ timeout
+          <span class="g">direct fire — no warning phase configured</span>
+        </div>
+
+        <!-- warning -> waiting return -->
+        <div class="seg-v" style="left:410px; top:244px; height:70px;"></div>
+        <div class="seg-h" style="left:120px; top:314px; width:290px;"></div>
+        <div class="seg-v arrow-up" style="left:120px; top:244px; height:70px;"></div>
+        <div class="edge-label" style="left:112px; top:322px;">
+          idle drops (any input) / assertion appears /
+          panic active elsewhere / feature disabled
+        </div>
+
+        <!-- fired -> waiting return -->
+        <div class="seg-v" style="left:700px; top:244px; height:130px;"></div>
+        <div class="seg-h" style="left:90px; top:374px; width:610px;"></div>
+        <div class="seg-v arrow-up" style="left:90px; top:244px; height:130px;"></div>
+        <div class="edge-label" style="left:340px; top:382px;">
+          idle drops below timeout
+          <span class="g">the guard that prevents re-firing every tick</span>
+        </div>
+      </div>
+      <div class="legend-row">
+        <div class="item"><span class="swatch-line"></span> guarded transition</div>
+        <div class="item"><span class="swatch-line" style="border-color: var(--accent);"></span> fires Panic Mode</div>
+      </div>
+      <div class="diagram-caption">
+        On fire: record <span class="term">.inactivity</span> in Lock History → <span class="term">PanicModeManager.triggerPanic()</span> → <span class="term">LockEngine.lockScreen()</span> only if action is <span class="term">panicAndLock</span>.
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline">
+    <div class="section-head">
+      <span class="section-num">03</span>
+      <h2>Evaluation loop</h2>
+    </div>
+    <p class="section-dek">The manager owns every side effect; the trigger logic itself touches nothing external — that split is what makes every edge case above unit-testable without a real timer.</p>
+
+    <div class="diagram-frame">
+      <div class="pipeline">
+        <div class="pipe-stage">
+          <span class="lane-tag impure">Manager · @MainActor</span>
+          <div class="pipe-card">
+            <div class="pc-title">arm timer</div>
+            <div class="pc-body">interval until next decision point — per-second only while a warning is showing, coarser otherwise</div>
+          </div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage">
+          <span class="lane-tag impure">Manager · @MainActor</span>
+          <div class="pipe-card">
+            <div class="pc-title">read system state</div>
+            <div class="pc-body"><span class="term">CGEventSourceSecondsSinceLastEventType</span> for idle seconds, <span class="term">IOPMCopyAssertionsStatus</span> for display-sleep assertion</div>
+          </div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage">
+          <span class="lane-tag pure">IdleTrigger · pure</span>
+          <div class="pipe-card pure-card">
+            <div class="pc-title">evaluate(idle, assertion, panicActive)</div>
+            <div class="pc-body">no I/O, no timers — returns one action from the state machine</div>
+          </div>
+        </div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-stage">
+          <span class="lane-tag impure">Manager · @MainActor</span>
+          <div class="pipe-card">
+            <div class="pc-title">perform side effect</div>
+            <div class="pc-body"><span class="term">showWarning</span> / <span class="term">cancelWarning</span> / <span class="term">fire</span> / nothing</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="guard">
+    <div class="section-head">
+      <span class="section-num">04</span>
+      <h2>The false-trigger guard</h2>
+    </div>
+    <div class="prose">
+      <p>macOS idle time only counts <em>input</em> — a keystroke or a mouse move. A full-screen video, a slideshow, a long unscrolled document all read as fully idle even while someone is actively watching. Two guards keep Inactivity Lock from firing on that.</p>
+    </div>
+
+    <div class="guard-grid">
+      <div class="guard-card">
+        <div class="g-num">Guard 1</div>
+        <h3>Display-sleep assertion</h3>
+        <p>A held assertion suppresses the timer entirely. Video players, Keynote, and presentation software all hold one while active — the most common false-trigger case never reaches <span class="term">warning</span>.</p>
+      </div>
+      <div class="guard-card">
+        <div class="g-num">Guard 2</div>
+        <h3>Warning overlay</h3>
+        <p>Catches what Guard 1 can't: someone reading a long document with no assertion held. Default 10s, configurable 0–30s. Any input cancels it — 0 turns it off.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      If the assertion query fails, it's treated as "no assertion held" and evaluation proceeds — security-forward by default, with the warning overlay as the escape hatch.
+    </div>
+  </section>
+
+  <section id="settings">
+    <div class="section-head">
+      <span class="section-num">05</span>
+      <h2>Settings</h2>
+    </div>
+    <p class="section-dek">All four are iCloud-synced — unlike the camera and Touch ID controls, which are deliberately kept per-machine.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Type</th>
+            <th>Default</th>
+            <th>Range</th>
+            <th>Sync</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="key">inactivityLockEnabled</td>
+            <td>Bool</td>
+            <td>false</td>
+            <td class="range">—</td>
+            <td><span class="sync-pill cloud">iCloud</span></td>
+          </tr>
+          <tr>
+            <td class="key">inactivityLockTimeout</td>
+            <td>minutes</td>
+            <td>5</td>
+            <td class="range">1–60</td>
+            <td><span class="sync-pill cloud">iCloud</span></td>
+          </tr>
+          <tr>
+            <td class="key">inactivityWarningLead</td>
+            <td>seconds</td>
+            <td>10</td>
+            <td class="range">0–30 (0 = off)</td>
+            <td><span class="sync-pill cloud">iCloud</span></td>
+          </tr>
+          <tr>
+            <td class="key">inactivityLockAction</td>
+            <td>enum</td>
+            <td>panicAndLock</td>
+            <td class="range">panicOnly | panicAndLock</td>
+            <td><span class="sync-pill cloud">iCloud</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>Vigil Screen · v0.6.0 design review</span>
+    <span>Inactivity Lock</span>
+  </footer>
+
+</div>

@@ -27,3 +27,6 @@ VigilScreenTests/   — 132 tests
 ## Context Files
 Read `.claude/rules/architecture.md` for feature internals and state persistence.
 Read `.claude/rules/conventions.md` for Swift 6 rules, coding conventions, and test coverage.
+
+## Design Specs
+Every spec in `docs/superpowers/specs/` ships a companion `.html` at the same path — a self-contained visual walkthrough of the feature's workflow alongside the app's existing triggers. Inline CSS only, no external assets or CDN scripts.
