@@ -48,13 +48,13 @@ final class SettingsStoreTests: XCTestCase {
         SettingsStore.shared.proximityRSSIThreshold = original
     }
 
-    @MainActor func testProximityLockEnabled_persists() {
-        let original = SettingsStore.shared.proximityLockEnabled
-        SettingsStore.shared.proximityLockEnabled = !original
+    @MainActor func testPanicShortcutEnabled_persists() {
+        let original = SettingsStore.shared.panicShortcutEnabled
+        SettingsStore.shared.panicShortcutEnabled = !original
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-        let saved = UserDefaults.standard.object(forKey: "proximityLockEnabled") as? Bool
+        let saved = UserDefaults.standard.object(forKey: "panicShortcutEnabled") as? Bool
         XCTAssertEqual(saved, !original)
-        SettingsStore.shared.proximityLockEnabled = original
+        SettingsStore.shared.panicShortcutEnabled = original
     }
 
     @MainActor func testPanicAutoMuteAudio_persists() {
