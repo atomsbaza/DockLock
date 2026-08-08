@@ -19,7 +19,7 @@ xcodebuild -scheme VigilScreen -destination 'platform=macOS' test -only-testing:
 VigilScreen/App/, MenuBar/, Features/PanicMode/, Features/ProximityLock/,
 Features/ShoulderSurfing/, Features/PresentationMode/, Features/History/,
 Core/, Settings/, Resources/
-VigilScreenTests/   — 131 tests
+VigilScreenTests/   — 132 tests
 .claude/rules/      — architecture.md, conventions.md
 .claude/commands/   — /version-bump, /release, /pr-preflight
 ```

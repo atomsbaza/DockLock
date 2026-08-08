@@ -19,7 +19,7 @@ paths:
 - macOS 26 Liquid Glass: gate `.glassEffect` behind `#available(macOS 26, *)`
 - Version bumping: `/version-bump <x.y.z>` slash command
 
-## Test Coverage (131 tests, all passing)
+## Test Coverage (132 tests, all passing)
 - `AppBlocklistTests` — safelist CRUD and persistence
 - `SettingsStoreTests` — defaults, clamping, round-trip, FP counter + banner actions
 - `DiscoveredDeviceTests` — RSSI signal classification
