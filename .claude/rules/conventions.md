@@ -31,7 +31,7 @@ paths:
 - `ScreenShareDetectorTests` — per-app heuristics, watchlist mutations
 - `PresentationModeManagerTests` — engage/disengage, history entries, panic priority
 - `AuditSummaryGeneratorTests` — prompt construction for all trigger types
-- `ShoulderSurfingDetectorTests` — credibility filter thresholds, false positive feedback
+- `ShoulderSurfingDetectorTests` — credibility filter thresholds, implicit FP duration rule, FP ledger dedup
 - `ShoulderSurfingTriggerTests` — threshold formula, consecutive-frame trigger counter
 - `CloudSyncStoreTests` — settings fan-out from cloud KV, security keys excluded from sync
 - `LockHistoryStoreTests` — cloud merge conflict resolution

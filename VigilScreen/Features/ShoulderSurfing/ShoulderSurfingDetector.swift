@@ -28,6 +28,19 @@ struct ShoulderSurfingTrigger {
     }
 }
 
+/// Pure ledger that de-duplicates false-positive reports per lock event.
+/// Ensures the same event never increments the false-positive counter twice
+/// (e.g. an implicit report from a short panic release plus an explicit
+/// "Not a real threat" tap on the same history row).
+struct FalsePositiveLedger {
+    private(set) var reportedIDs: Set<UUID> = []
+
+    /// Returns `true` only the first time `id` is reported.
+    mutating func report(_ id: UUID) -> Bool {
+        reportedIDs.insert(id).inserted
+    }
+}
+
 /// Monitors the front camera for a second face and auto-triggers Panic Mode.
 /// Uses VNDetectFaceRectanglesRequest at ~2 fps; all processing is on-device.
 @MainActor
@@ -39,6 +52,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
     @Published private(set) var cameraPermissionDenied = false
     /// True while the auto-release countdown is ticking.
     @Published private(set) var releaseCountdownActive = false
+    @Published private(set) var ledger = FalsePositiveLedger()
 
     private var session: AVCaptureSession?
     private var videoOutput: AVCaptureVideoDataOutput?
@@ -52,6 +66,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
     private var didAutoTrigger = false
     private var triggerTime: Date?
     private var releaseTask: Task<Void, Never>?
+    private var lastAutoTriggerEventID: UUID?
 
     private var triggerThreshold: Int {
         ShoulderSurfingTrigger.threshold(sensitivity: SettingsStore.shared.shoulderSurfingSensitivity)
@@ -193,14 +208,23 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
 
     // MARK: - False positive feedback
 
-    func recordFalsePositive() {
+    /// True when a panic that was auto-triggered by this detector was released
+    /// quickly enough to imply the "surfer" was actually a false alarm.
+    nonisolated static func isImplicitFalsePositive(panicDuration: TimeInterval) -> Bool {
+        panicDuration < 5
+    }
+
+    /// Records a false positive for `eventID`, incrementing the shared counter
+    /// only the first time this event is reported (implicit or explicit).
+    func recordFalsePositive(for eventID: UUID) {
+        guard ledger.report(eventID) else { return }
         SettingsStore.shared.shoulderSurfingFalsePositiveCount += 1
     }
 
     func handlePanicRelease(didAutoTrigger: Bool, panicDuration: TimeInterval) {
-        guard didAutoTrigger else { return }
-        if panicDuration < 5 {
-            recordFalsePositive()
+        guard didAutoTrigger, let eventID = lastAutoTriggerEventID else { return }
+        if Self.isImplicitFalsePositive(panicDuration: panicDuration) {
+            recordFalsePositive(for: eventID)
         }
     }
 
@@ -230,7 +254,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
         if trigger.process(faceCount: count, threshold: triggerThreshold) {
             didAutoTrigger = true
             triggerTime = Date()
-            LockHistoryStore.shared.record(.shoulderSurfer)
+            lastAutoTriggerEventID = LockHistoryStore.shared.record(.shoulderSurfer).id
             PanicModeManager.shared.triggerPanic()
         }
     }

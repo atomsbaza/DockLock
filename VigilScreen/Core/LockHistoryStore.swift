@@ -56,7 +56,8 @@ class LockHistoryStore: ObservableObject {
         load()
     }
 
-    func record(_ trigger: LockTriggerType, photoFilename: String? = nil) {
+    @discardableResult
+    func record(_ trigger: LockTriggerType, photoFilename: String? = nil) -> LockEvent {
         let event = LockEvent(trigger: trigger, photoFilename: photoFilename)
         events.insert(event, at: 0)
         if events.count > maxEvents {
@@ -65,6 +66,7 @@ class LockHistoryStore: ObservableObject {
             events = Array(events.prefix(maxEvents))
         }
         save()
+        return event
     }
 
     func clear() {

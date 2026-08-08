@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LockHistoryView: View {
     @ObservedObject private var history = LockHistoryStore.shared
+    @ObservedObject private var detector = ShoulderSurfingDetector.shared
     @State private var showingClearConfirm = false
     @State private var selectedPhoto: URL?
 
@@ -10,6 +11,7 @@ struct LockHistoryView: View {
         case idle, loading, result(String), failed
     }
     @State private var summaryState: SummaryState = .idle
+    @State private var summaryTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -25,10 +27,16 @@ struct LockHistoryView: View {
         }
         .sheet(isPresented: Binding(
             get: { summaryState != .idle },
-            set: { if !$0 { summaryState = .idle } }
+            set: { if !$0 { cancelSummaryTask() } }
         )) {
-            SummarySheet(state: summaryState) { summaryState = .idle }
+            SummarySheet(state: summaryState) { cancelSummaryTask() }
         }
+    }
+
+    private func cancelSummaryTask() {
+        summaryTask?.cancel()
+        summaryTask = nil
+        summaryState = .idle
     }
 
     // MARK: - Empty state
@@ -84,13 +92,20 @@ struct LockHistoryView: View {
                 }
 
                 if event.trigger == .shoulderSurfer {
-                    Button("Not a real threat") {
-                        ShoulderSurfingDetector.shared.recordFalsePositive()
+                    if detector.ledger.reportedIDs.contains(event.id) {
+                        Text("Reported")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 36)
+                    } else {
+                        Button("Not a real threat") {
+                            detector.recordFalsePositive(for: event.id)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .buttonStyle(.plain)
+                        .padding(.leading, 36)
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .buttonStyle(.plain)
-                    .padding(.leading, 36)
                 }
             }
             .padding(.vertical, 2)
@@ -122,17 +137,21 @@ struct LockHistoryView: View {
                 guard summaryState != .loading else { return }
                 summaryState = .loading
                 let events = history.events
-                Task { @MainActor in
+                summaryTask = Task { @MainActor in
                     if #available(macOS 26, *) {
                         do {
                             let text = try await AuditSummaryGenerator.shared.generate(from: events)
+                            guard !Task.isCancelled, summaryState == .loading else { return }
                             summaryState = .result(text)
                         } catch {
+                            guard !Task.isCancelled, summaryState == .loading else { return }
                             summaryState = .failed
                         }
                     } else {
+                        guard !Task.isCancelled, summaryState == .loading else { return }
                         summaryState = .failed
                     }
+                    summaryTask = nil
                 }
             }
             .disabled(history.events.isEmpty)

@@ -3,6 +3,10 @@ import Foundation
 import FoundationModels
 #endif
 
+enum AuditSummaryError: Error {
+    case unavailable
+}
+
 @MainActor
 final class AuditSummaryGenerator {
     static let shared = AuditSummaryGenerator()
@@ -38,10 +42,14 @@ final class AuditSummaryGenerator {
 
     @available(macOS 26, *)
     func generate(from events: [LockEvent]) async throws -> String {
+        #if canImport(FoundationModels)
         let prompt = buildPrompt(from: events)
         let session = LanguageModelSession()
         let response = try await session.respond(to: prompt)
         return response.content
+        #else
+        throw AuditSummaryError.unavailable
+        #endif
     }
 
     // MARK: - Private

@@ -31,7 +31,7 @@ Safelist: **transparent holes** via `CGContext` `maskImage`. Holes from `CGWindo
 - `AVCaptureSession` + `VNDetectFaceRectanglesRequest` at ~2 fps
 - Credibility filter on `VNFaceObservation`: `confidence >= 0.7` AND normalized `boundingBox.width × height >= 0.02` — filters out faces on TVs, posters, mirrors
 - Triggers when 2+ credible faces detected for `triggerThreshold` consecutive frames
-- **False positive feedback loop (v0.5.0):** implicit signal (panic released < 5 s after auto-trigger) + explicit "Not a real threat" button in Lock History → `recordFalsePositive()` increments `SettingsStore.shoulderSurfingFalsePositiveCount`; banner in `ShoulderSurfingView` offers to lower sensitivity after 3 FPs
+- **False positive feedback loop (v0.5.0):** implicit signal (panic released < 5 s after auto-trigger) + explicit "Not a real threat" button in Lock History → `recordFalsePositive(for: eventID)` increments `SettingsStore.shoulderSurfingFalsePositiveCount`, de-duplicated per `LockEvent.id` by a `FalsePositiveLedger` so the same event never counts twice whether reported implicitly or explicitly; banner in `ShoulderSurfingView` offers to lower sensitivity after 3 FPs
 
 ## Core Services
 - `SettingsStore`: `@Published` + Combine `.sink` auto-persist to `UserDefaults` + `NSUbiquitousKeyValueStore`
