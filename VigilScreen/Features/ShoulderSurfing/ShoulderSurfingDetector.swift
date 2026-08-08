@@ -2,6 +2,32 @@
 import Vision
 import Combine
 
+/// Pure counter that decides when consecutive multi-face frames should trigger a panic.
+struct ShoulderSurfingTrigger {
+    var consecutiveFrames: Int = 0
+
+    /// Number of consecutive ≥2-face frames required before triggering.
+    /// sensitivity 0.0 → 2 frames (~1 s at 2 fps); 1.0 → 6 frames (~3 s).
+    static func threshold(sensitivity: Double) -> Int {
+        Int(2 + sensitivity * 4)
+    }
+
+    /// Feed one frame's face count. Returns `true` exactly once when the threshold is crossed.
+    /// Resets the counter on both trigger and on count dropping below 2.
+    mutating func process(faceCount: Int, threshold: Int) -> Bool {
+        if faceCount >= 2 {
+            consecutiveFrames += 1
+            if consecutiveFrames >= threshold {
+                consecutiveFrames = 0
+                return true
+            }
+        } else {
+            consecutiveFrames = 0
+        }
+        return false
+    }
+}
+
 /// Monitors the front camera for a second face and auto-triggers Panic Mode.
 /// Uses VNDetectFaceRectanglesRequest at ~2 fps; all processing is on-device.
 @MainActor
@@ -17,7 +43,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
     private var session: AVCaptureSession?
     private var videoOutput: AVCaptureVideoDataOutput?
     private let visionQueue = DispatchQueue(label: "com.vigilscreen.shouldersurfing", qos: .userInitiated)
-    private var consecutiveMultiFaceFrames = 0
+    private var trigger = ShoulderSurfingTrigger()
     private var cancellables = Set<AnyCancellable>()
     // Accessed only from visionQueue — nonisolated(unsafe) is correct here.
     nonisolated(unsafe) private var lastProcessedTime = CMTime.zero
@@ -27,10 +53,8 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
     private var triggerTime: Date?
     private var releaseTask: Task<Void, Never>?
 
-    // Maps sensitivity 0.0–1.0 to a required consecutive-frame count.
-    // At 2 fps: threshold 2 = ~1 s, threshold 6 = ~3 s.
     private var triggerThreshold: Int {
-        Int(2 + SettingsStore.shared.shoulderSurfingSensitivity * 4)
+        ShoulderSurfingTrigger.threshold(sensitivity: SettingsStore.shared.shoulderSurfingSensitivity)
     }
 
     nonisolated static let minFaceConfidence: Float = 0.7
@@ -126,7 +150,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
 
         session = s
         videoOutput = output
-        consecutiveMultiFaceFrames = 0
+        trigger = ShoulderSurfingTrigger()
 
         DispatchQueue.global(qos: .userInitiated).async { s.startRunning() }
         isRunning = true
@@ -141,7 +165,7 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
         videoOutput = nil
         isRunning = false
         faceCount = 0
-        consecutiveMultiFaceFrames = 0
+        trigger = ShoulderSurfingTrigger()
         didAutoTrigger = false
     }
 
@@ -203,17 +227,11 @@ final class ShoulderSurfingDetector: NSObject, ObservableObject {
         cancelReleaseCountdown()
         didAutoTrigger = false
 
-        if count >= 2 {
-            consecutiveMultiFaceFrames += 1
-            if consecutiveMultiFaceFrames >= triggerThreshold {
-                consecutiveMultiFaceFrames = 0
-                didAutoTrigger = true
-                triggerTime = Date()
-                LockHistoryStore.shared.record(.shoulderSurfer)
-                PanicModeManager.shared.triggerPanic()
-            }
-        } else {
-            consecutiveMultiFaceFrames = 0
+        if trigger.process(faceCount: count, threshold: triggerThreshold) {
+            didAutoTrigger = true
+            triggerTime = Date()
+            LockHistoryStore.shared.record(.shoulderSurfer)
+            PanicModeManager.shared.triggerPanic()
         }
     }
 }
