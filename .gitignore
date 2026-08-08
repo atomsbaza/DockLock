@@ -47,7 +47,6 @@ fastlane/test_output
 skills-lock.json
 
 # Local notes
-AGENTS.md
 PLAN.md
 plan_*.md
 apple_review_*.md
