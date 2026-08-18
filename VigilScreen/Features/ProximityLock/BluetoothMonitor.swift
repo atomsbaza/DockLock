@@ -48,8 +48,11 @@ class BluetoothMonitor: NSObject, ObservableObject {
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         discoveryScanTimer?.invalidate()
+        // scheduledTimer is created on the main actor, so it fires on the main run loop.
         discoveryScanTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
-            self?.stopDiscoveryScan()
+            MainActor.assumeIsolated {
+                self?.stopDiscoveryScan()
+            }
         }
     }
 
@@ -102,8 +105,11 @@ class BluetoothMonitor: NSObject, ObservableObject {
 
     func startPresenceTimer() {
         stopPresenceTimer()
+        // scheduledTimer is created on the main actor, so it fires on the main run loop.
         presenceTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            self?.checkPresence()
+            MainActor.assumeIsolated {
+                self?.checkPresence()
+            }
         }
     }
 

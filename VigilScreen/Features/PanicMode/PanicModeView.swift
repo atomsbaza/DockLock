@@ -128,7 +128,6 @@ struct PanicModeView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Panic Mode")
         .sheet(isPresented: $showAppPicker) {
             RunningAppPickerSheet(isPresented: $showAppPicker)
         }

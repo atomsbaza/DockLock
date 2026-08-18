@@ -1,37 +1,129 @@
 import SwiftUI
+import AppKit
 import ServiceManagement
 
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case panicMode
+    case proximity
+    case shoulderSurfing
+    case presentationMode
+    case history
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .panicMode: "Panic Mode"
+        case .proximity: "Proximity Lock"
+        case .shoulderSurfing: "Shoulder Surfing"
+        case .presentationMode: "Presentation Mode"
+        case .history: "History"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: "gear"
+        case .panicMode: "eye.slash"
+        case .proximity: "antenna.radiowaves.left.and.right"
+        case .shoulderSurfing: "eye.trianglebadge.exclamationmark"
+        case .presentationMode: "rectangle.on.rectangle"
+        case .history: "clock"
+        }
+    }
+}
+
 struct SettingsView: View {
-    @ObservedObject private var settings = SettingsStore.shared
+    @State private var selection: SettingsSection? = .general
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                NavigationLink(destination: GeneralSettingsView()) {
-                    Label("General", systemImage: "gear")
-                }
-                NavigationLink(destination: PanicModeView()) {
-                    Label("Panic Mode", systemImage: "eye.slash")
-                }
-                NavigationLink(destination: ProximityView()) {
-                    Label("Proximity Lock", systemImage: "antenna.radiowaves.left.and.right")
-                }
-                NavigationLink(destination: ShoulderSurfingView()) {
-                    Label("Shoulder Surfing", systemImage: "eye.trianglebadge.exclamationmark")
-                }
-                NavigationLink(destination: PresentationModeView()) {
-                    Label("Presentation Mode", systemImage: "rectangle.on.rectangle")
-                }
-                NavigationLink(destination: LockHistoryView()) {
-                    Label("History", systemImage: "clock")
-                }
-            }
-            .navigationTitle("Vigil Screen")
-            .listStyle(.sidebar)
-        } detail: {
-            GeneralSettingsView()
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 190)
+
+            Divider()
+
+            detailView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 600, minHeight: 400)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Vigil Screen")
+                .font(.headline)
+                .padding(.horizontal, 14)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+
+            List(SettingsSection.allCases, selection: $selection) { section in
+                Label(section.title, systemImage: section.systemImage)
+                    .tag(section)
+            }
+            .listStyle(.sidebar)
+        }
+    }
+
+    @ViewBuilder
+    private var detailView: some View {
+        switch selection ?? .general {
+        case .general:
+            SettingsDetailContainer(title: SettingsSection.general.title) {
+                GeneralSettingsView()
+            }
+        case .panicMode:
+            SettingsDetailContainer(title: SettingsSection.panicMode.title) {
+                PanicModeView()
+            }
+        case .proximity:
+            SettingsDetailContainer(title: SettingsSection.proximity.title) {
+                ProximityView()
+            }
+        case .shoulderSurfing:
+            SettingsDetailContainer(title: SettingsSection.shoulderSurfing.title) {
+                ShoulderSurfingView()
+            }
+        case .presentationMode:
+            SettingsDetailContainer(title: SettingsSection.presentationMode.title) {
+                PresentationModeView()
+            }
+        case .history:
+            SettingsDetailContainer(title: SettingsSection.history.title) {
+                LockHistoryView()
+            }
+        }
+    }
+}
+
+private struct SettingsDetailContainer<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(title)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -120,7 +212,6 @@ private struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("General")
     }
 
     private func toggleLaunchAtLogin(_ enable: Bool) {

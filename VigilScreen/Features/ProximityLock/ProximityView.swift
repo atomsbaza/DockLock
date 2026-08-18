@@ -17,7 +17,6 @@ struct ProximityView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Proximity Lock")
     }
 
     // MARK: - Sections

@@ -21,7 +21,6 @@ struct LockHistoryView: View {
                 eventList
             }
         }
-        .navigationTitle("History")
         .sheet(item: $selectedPhoto) { url in
             PhotoDetailSheet(photoURL: url)
         }

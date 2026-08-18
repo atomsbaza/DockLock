@@ -63,7 +63,6 @@ struct PresentationModeView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Presentation Mode")
     }
 
     @ViewBuilder

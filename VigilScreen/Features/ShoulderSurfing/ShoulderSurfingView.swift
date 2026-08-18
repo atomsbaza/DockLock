@@ -120,7 +120,6 @@ struct ShoulderSurfingView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Shoulder Surfing")
     }
 }
 

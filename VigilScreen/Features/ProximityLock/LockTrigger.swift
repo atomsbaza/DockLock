@@ -64,17 +64,23 @@ class LockTrigger: ObservableObject {
         isCountingDown = true
         secondsRemaining = Int(settings.proximityLockDelay)
 
+        // scheduledTimer is created on the main actor, so it fires on the main run loop.
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.secondsRemaining -= 1
-            if self.secondsRemaining <= 0 {
-                self.resetCountdown()
-                LockHistoryStore.shared.record(.proximity)
-                // Trigger Panic Mode first so sensitive apps are hidden even if
-                // the user wakes the screen without authenticating.
-                PanicModeManager.shared.triggerPanic()
-                LockEngine.lockScreen()
+            MainActor.assumeIsolated {
+                self?.handleCountdownTick()
             }
+        }
+    }
+
+    private func handleCountdownTick() {
+        secondsRemaining -= 1
+        if secondsRemaining <= 0 {
+            resetCountdown()
+            LockHistoryStore.shared.record(.proximity)
+            // Trigger Panic Mode first so sensitive apps are hidden even if
+            // the user wakes the screen without authenticating.
+            PanicModeManager.shared.triggerPanic()
+            LockEngine.lockScreen()
         }
     }
 

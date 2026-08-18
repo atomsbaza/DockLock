@@ -31,17 +31,23 @@ class PermissionManager: ObservableObject {
     private func startPolling() {
         guard pollTimer == nil else { return }
         pollCount = 0
+        // scheduledTimer is created on the main actor, so it fires on the main run loop.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.pollCount += 1
-            let granted = AXIsProcessTrusted()
-            if self.hasAccessibilityPermission != granted {
-                self.hasAccessibilityPermission = granted
+            MainActor.assumeIsolated {
+                self?.pollAccessibilityPermission()
             }
-            if granted || self.pollCount >= self.maxPollCount {
-                self.pollTimer?.invalidate()
-                self.pollTimer = nil
-            }
+        }
+    }
+
+    private func pollAccessibilityPermission() {
+        pollCount += 1
+        let granted = AXIsProcessTrusted()
+        if hasAccessibilityPermission != granted {
+            hasAccessibilityPermission = granted
+        }
+        if granted || pollCount >= maxPollCount {
+            pollTimer?.invalidate()
+            pollTimer = nil
         }
     }
 }
